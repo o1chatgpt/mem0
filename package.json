@@ -74,6 +74,7 @@
     "redis": "latest",
     "sqlite3": "latest",
     "pg-native": "latest",
+    "prisma": "latest",
     "basic-ftp": "latest",
     "path": "latest",
     "jose": "latest",
@@ -82,7 +83,9 @@
     "fs": "latest",
     "@supabase/auth-helpers-nextjs": "latest",
     "uuid": "latest",
-    "diff-match-patch": "latest"
+    "diff-match-patch": "latest",
+    "@vercel/kv": "latest",
+    "@prisma/client": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

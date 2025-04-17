@@ -1,3 +1,5 @@
+"use server"
+
 import { type NextRequest, NextResponse } from "next/server"
 import { conflictAnalyticsService } from "@/lib/conflict-analytics-service"
 
@@ -10,7 +12,10 @@ export async function GET(request: NextRequest) {
 
     const analytics = await conflictAnalyticsService.getConflictAnalytics(timeRange, userId)
 
-    return NextResponse.json(analytics)
+    // Add cache control headers
+    const response = NextResponse.json(analytics)
+    response.headers.set("Cache-Control", "public, max-age=300") // 5 minutes
+    return response
   } catch (error) {
     console.error("Error fetching conflict analytics:", error)
     return NextResponse.json({ error: "Failed to fetch conflict analytics" }, { status: 500 })

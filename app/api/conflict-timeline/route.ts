@@ -1,3 +1,5 @@
+"use server"
+
 import { type NextRequest, NextResponse } from "next/server"
 import { conflictAnalyticsService } from "@/lib/conflict-analytics-service"
 
@@ -10,7 +12,10 @@ export async function GET(request: NextRequest) {
 
     const timeline = await conflictAnalyticsService.getConflictTimeline(timeRange, userId)
 
-    return NextResponse.json(timeline)
+    // Add cache control headers
+    const response = NextResponse.json(timeline)
+    response.headers.set("Cache-Control", "public, max-age=300") // 5 minutes
+    return response
   } catch (error) {
     console.error("Error fetching conflict timeline:", error)
     return NextResponse.json({ error: "Failed to fetch conflict timeline" }, { status: 500 })

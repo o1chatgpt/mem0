@@ -1,47 +1,95 @@
 "use server"
+
+import { db } from "@/lib/db"
+import { cacheService } from "@/lib/cache"
 import { serverConfig } from "./config"
 import { Memory } from "./mem0-client"
 import type { EditingConflict, ResolutionStrategy } from "./intelligent-conflict-service"
 
-export interface ConflictAnalytics {
-  summary: {
-    totalConflicts: number
-    resolvedConflicts: number
-    resolutionRate: number
-    averageResolutionTime: number // in minutes
-  }
-  byTime: {
-    period: string // day, week, month
-    conflicts: Array<{
-      date: string
-      count: number
-      resolved: number
-    }>
-  }
-  byUser: Array<{
+// Cache namespaces
+const CACHE_NAMESPACES = {
+  ANALYTICS: "conflict-analytics",
+  TIMELINE: "conflict-timeline",
+  USER_STATS: "user-conflict-stats",
+  DOC_STATS: "document-conflict-stats",
+}
+
+// Cache TTLs in seconds
+const CACHE_TTL = {
+  ANALYTICS: 60 * 5, // 5 minutes
+  TIMELINE: 60 * 5, // 5 minutes
+  USER_STATS: 60 * 10, // 10 minutes
+  DOC_STATS: 60 * 10, // 10 minutes
+}
+
+export type ConflictAnalytics = {
+  totalConflicts: number
+  resolvedConflicts: number
+  pendingConflicts: number
+  conflictsByType: {
+    type: string
+    count: number
+  }[]
+  conflictsByUser: {
     userId: string
     userName: string
-    conflictsCreated: number
-    conflictsResolved: number
-    averageResolutionTime: number
-    preferredStrategy: ResolutionStrategy
-  }>
-  byDocument: Array<{
+    count: number
+  }[]
+  conflictsByDocument: {
     documentId: string
     documentName: string
-    conflicts: number
-    resolved: number
-    hotspots: Array<{
-      section: string
-      conflicts: number
-    }>
-  }>
-  byStrategy: Array<{
-    strategy: ResolutionStrategy
     count: number
-    averageResolutionTime: number
-    successRate: number
-  }>
+  }[]
+}
+
+export type ConflictTimelineEntry = {
+  date: string
+  conflicts: number
+  resolved: number
+}
+
+export type ConflictTimeline = ConflictTimelineEntry[]
+
+export type UserConflictStats = {
+  userId: string
+  userName: string
+  totalConflicts: number
+  resolvedConflicts: number
+  pendingConflicts: number
+  resolutionRate: number
+  averageResolutionTime: number // in hours
+  conflictsByType: {
+    type: string
+    count: number
+  }[]
+  recentConflicts: {
+    id: string
+    documentId: string
+    documentName: string
+    createdAt: string
+    status: string
+  }[]
+}
+
+export type DocumentConflictStats = {
+  documentId: string
+  documentName: string
+  totalConflicts: number
+  resolvedConflicts: number
+  pendingConflicts: number
+  conflictsByUser: {
+    userId: string
+    userName: string
+    count: number
+  }[]
+  conflictTimeline: ConflictTimelineEntry[]
+  recentConflicts: {
+    id: string
+    userId: string
+    userName: string
+    createdAt: string
+    status: string
+  }[]
 }
 
 export interface ConflictTimelineItem {
@@ -56,7 +104,7 @@ export interface ConflictTimelineItem {
   strategy?: ResolutionStrategy
 }
 
-export interface UserConflictStats {
+export interface UserConflictStatsOld {
   userId: string
   userName: string
   totalEdits: number
@@ -71,7 +119,7 @@ export interface UserConflictStats {
   preferredResolutions: Record<ResolutionStrategy, number>
 }
 
-export class ConflictAnalyticsService {
+class ConflictAnalyticsService {
   private memory: Memory
 
   constructor() {
@@ -79,21 +127,166 @@ export class ConflictAnalyticsService {
   }
 
   /**
-   * Get comprehensive conflict analytics
+   * Get conflict analytics data
    */
   async getConflictAnalytics(
     timeRange: "week" | "month" | "year" = "month",
     userId?: string,
   ): Promise<ConflictAnalytics> {
-    try {
-      // Get all conflicts from memory
-      const conflicts = await this.getAllConflicts(timeRange, userId)
+    // Generate cache key based on parameters
+    const cacheKey = `analytics:${timeRange}:${userId || "all"}`
 
-      // Process conflicts into analytics data
-      return this.processConflictsIntoAnalytics(conflicts, timeRange)
+    try {
+      // Try to get from cache first
+      const cached = await cacheService.get<ConflictAnalytics>(cacheKey, { namespace: CACHE_NAMESPACES.ANALYTICS })
+
+      if (cached) {
+        console.log(`Serving conflict analytics from cache: ${cacheKey}`)
+        return cached
+      }
+
+      // If not in cache, fetch from database
+      console.log(`Fetching conflict analytics from database: ${cacheKey}`)
+
+      // Calculate date range
+      const now = new Date()
+      const startDate = new Date()
+      if (timeRange === "week") {
+        startDate.setDate(now.getDate() - 7)
+      } else if (timeRange === "month") {
+        startDate.setMonth(now.getMonth() - 1)
+      } else if (timeRange === "year") {
+        startDate.setFullYear(now.getFullYear() - 1)
+      }
+
+      // Base query conditions
+      let whereClause = {
+        createdAt: {
+          gte: startDate.toISOString(),
+        },
+      }
+
+      // Add user filter if provided
+      if (userId) {
+        whereClause = {
+          ...whereClause,
+          userId,
+        }
+      }
+
+      // Get total conflicts
+      const totalConflicts = await db.conflict.count({
+        where: whereClause,
+      })
+
+      // Get resolved conflicts
+      const resolvedConflicts = await db.conflict.count({
+        where: {
+          ...whereClause,
+          status: "resolved",
+        },
+      })
+
+      // Get pending conflicts
+      const pendingConflicts = await db.conflict.count({
+        where: {
+          ...whereClause,
+          status: "pending",
+        },
+      })
+
+      // Get conflicts by type
+      const conflictsByType = await db.conflict.groupBy({
+        by: ["type"],
+        where: whereClause,
+        _count: {
+          type: true,
+        },
+      })
+
+      // Get conflicts by user
+      const conflictsByUser = await db.conflict.groupBy({
+        by: ["userId"],
+        where: whereClause,
+        _count: {
+          userId: true,
+        },
+      })
+
+      // Get user details
+      const userIds = conflictsByUser.map((item) => item.userId)
+      const users = await db.user.findMany({
+        where: {
+          id: {
+            in: userIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
+
+      // Get conflicts by document
+      const conflictsByDocument = await db.conflict.groupBy({
+        by: ["documentId"],
+        where: whereClause,
+        _count: {
+          documentId: true,
+        },
+      })
+
+      // Get document details
+      const documentIds = conflictsByDocument.map((item) => item.documentId)
+      const documents = await db.document.findMany({
+        where: {
+          id: {
+            in: documentIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
+
+      // Format the results
+      const result: ConflictAnalytics = {
+        totalConflicts,
+        resolvedConflicts,
+        pendingConflicts,
+        conflictsByType: conflictsByType.map((item) => ({
+          type: item.type,
+          count: item._count.type,
+        })),
+        conflictsByUser: conflictsByUser.map((item) => {
+          const user = users.find((u) => u.id === item.userId)
+          return {
+            userId: item.userId,
+            userName: user?.name || "Unknown User",
+            count: item._count.userId,
+          }
+        }),
+        conflictsByDocument: conflictsByDocument.map((item) => {
+          const document = documents.find((d) => d.id === item.documentId)
+          return {
+            documentId: item.documentId,
+            documentName: document?.name || "Unknown Document",
+            count: item._count.documentId,
+          }
+        }),
+      }
+
+      // Store in cache
+      await cacheService.set(cacheKey, result, {
+        namespace: CACHE_NAMESPACES.ANALYTICS,
+        ttl: CACHE_TTL.ANALYTICS,
+      })
+
+      return result
     } catch (error) {
       console.error("Error getting conflict analytics:", error)
-      return this.getEmptyAnalytics()
+      throw error
     }
   }
 
@@ -103,178 +296,554 @@ export class ConflictAnalyticsService {
   async getConflictTimeline(
     timeRange: "week" | "month" | "year" = "month",
     userId?: string,
-  ): Promise<ConflictTimelineItem[]> {
-    try {
-      // Get all conflicts from memory
-      const conflicts = await this.getAllConflicts(timeRange, userId)
+  ): Promise<ConflictTimeline> {
+    // Generate cache key based on parameters
+    const cacheKey = `timeline:${timeRange}:${userId || "all"}`
 
-      // Convert to timeline format
-      return conflicts.map((conflict) => ({
-        id: conflict.id,
-        documentId: conflict.documentId,
-        documentName: this.getDocumentName(conflict.documentId),
-        timestamp: conflict.detected,
-        users: conflict.users.map((u) => u.name),
-        severity: conflict.severity,
-        resolved: !!conflict.resolved,
-        resolutionTime: conflict.resolved
-          ? Math.round((conflict.resolved.timestamp - conflict.detected) / 60000)
-          : undefined,
-        strategy: conflict.resolved?.strategy,
-      }))
+    try {
+      // Try to get from cache first
+      const cached = await cacheService.get<ConflictTimeline>(cacheKey, { namespace: CACHE_NAMESPACES.TIMELINE })
+
+      if (cached) {
+        console.log(`Serving conflict timeline from cache: ${cacheKey}`)
+        return cached
+      }
+
+      // If not in cache, fetch from database
+      console.log(`Fetching conflict timeline from database: ${cacheKey}`)
+
+      // Calculate date range
+      const now = new Date()
+      const startDate = new Date()
+      let interval: "day" | "week" | "month" = "day"
+
+      if (timeRange === "week") {
+        startDate.setDate(now.getDate() - 7)
+        interval = "day"
+      } else if (timeRange === "month") {
+        startDate.setMonth(now.getMonth() - 1)
+        interval = "day"
+      } else if (timeRange === "year") {
+        startDate.setFullYear(now.getFullYear() - 1)
+        interval = "month"
+      }
+
+      // Base query conditions
+      let whereClause = {
+        createdAt: {
+          gte: startDate.toISOString(),
+        },
+      }
+
+      // Add user filter if provided
+      if (userId) {
+        whereClause = {
+          ...whereClause,
+          userId,
+        }
+      }
+
+      // Get all conflicts in the time range
+      const conflicts = await db.conflict.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          createdAt: true,
+          status: true,
+        },
+      })
+
+      // Group conflicts by date
+      const conflictsByDate = new Map<string, { conflicts: number; resolved: number }>()
+
+      // Generate all dates in the range
+      const dateRange: string[] = []
+      const tempDate = new Date(startDate)
+      while (tempDate <= now) {
+        let dateKey: string
+
+        if (interval === "day") {
+          dateKey = tempDate.toISOString().split("T")[0]
+        } else if (interval === "week") {
+          const weekStart = new Date(tempDate)
+          weekStart.setDate(tempDate.getDate() - tempDate.getDay())
+          dateKey = weekStart.toISOString().split("T")[0]
+        } else {
+          dateKey = `${tempDate.getFullYear()}-${(tempDate.getMonth() + 1).toString().padStart(2, "0")}`
+        }
+
+        if (!conflictsByDate.has(dateKey)) {
+          conflictsByDate.set(dateKey, { conflicts: 0, resolved: 0 })
+        }
+
+        if (interval === "day") {
+          tempDate.setDate(tempDate.getDate() + 1)
+        } else if (interval === "week") {
+          tempDate.setDate(tempDate.getDate() + 7)
+        } else {
+          tempDate.setMonth(tempDate.getMonth() + 1)
+        }
+      }
+
+      // Count conflicts by date
+      conflicts.forEach((conflict) => {
+        const date = new Date(conflict.createdAt)
+        let dateKey: string
+
+        if (interval === "day") {
+          dateKey = date.toISOString().split("T")[0]
+        } else if (interval === "week") {
+          const weekStart = new Date(date)
+          weekStart.setDate(date.getDate() - date.getDay())
+          dateKey = weekStart.toISOString().split("T")[0]
+        } else {
+          dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, "0")}`
+        }
+
+        if (!conflictsByDate.has(dateKey)) {
+          conflictsByDate.set(dateKey, { conflicts: 0, resolved: 0 })
+        }
+
+        const entry = conflictsByDate.get(dateKey)!
+        entry.conflicts++
+
+        if (conflict.status === "resolved") {
+          entry.resolved++
+        }
+      })
+
+      // Convert to array and sort by date
+      const result: ConflictTimeline = Array.from(conflictsByDate.entries())
+        .map(([date, counts]) => ({
+          date,
+          conflicts: counts.conflicts,
+          resolved: counts.resolved,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      // Store in cache
+      await cacheService.set(cacheKey, result, {
+        namespace: CACHE_NAMESPACES.TIMELINE,
+        ttl: CACHE_TTL.TIMELINE,
+      })
+
+      return result
     } catch (error) {
       console.error("Error getting conflict timeline:", error)
-      return []
+      throw error
     }
   }
 
   /**
    * Get user-specific conflict statistics
    */
-  async getUserConflictStats(userId: string): Promise<UserConflictStats | null> {
+  async getUserConflictStats(userId: string): Promise<UserConflictStats> {
+    // Generate cache key based on parameters
+    const cacheKey = `user-stats:${userId}`
+
     try {
-      // Get all conflicts involving this user
-      const conflicts = await this.getAllConflicts("year", userId)
+      // Try to get from cache first
+      const cached = await cacheService.get<UserConflictStats>(cacheKey, { namespace: CACHE_NAMESPACES.USER_STATS })
 
-      // Get user editing patterns from memory
-      const pattern = await this.memory.retrieveMemory<any>(`editing-pattern-${userId}`, userId)
-
-      if (!pattern) {
-        return null
+      if (cached) {
+        console.log(`Serving user conflict stats from cache: ${cacheKey}`)
+        return cached
       }
 
-      // Process user stats
-      const userConflicts = conflicts.filter((c) => c.users.some((u) => u.id === userId))
+      // If not in cache, fetch from database
+      console.log(`Fetching user conflict stats from database: ${cacheKey}`)
 
-      // Get collaborator stats
-      const collaborators: Record<
-        string,
-        {
-          userId: string
-          userName: string
-          conflicts: number
-          resolved: number
-        }
-      > = {}
-
-      for (const conflict of userConflicts) {
-        for (const user of conflict.users) {
-          if (user.id !== userId) {
-            if (!collaborators[user.id]) {
-              collaborators[user.id] = {
-                userId: user.id,
-                userName: user.name,
-                conflicts: 0,
-                resolved: 0,
-              }
-            }
-
-            collaborators[user.id].conflicts++
-
-            if (conflict.resolved && conflict.resolved.resolvedBy === userId) {
-              collaborators[user.id].resolved++
-            }
-          }
-        }
-      }
-
-      return {
-        userId,
-        userName: this.getUserName(userId),
-        totalEdits: pattern.editingTimes?.length || 0,
-        totalConflicts: userConflicts.length,
-        conflictRate: pattern.conflictFrequency || 0,
-        collaborators: Object.values(collaborators).map((c) => ({
-          userId: c.userId,
-          userName: c.userName,
-          conflicts: c.conflicts,
-          resolutionRate: c.conflicts > 0 ? c.resolved / c.conflicts : 0,
-        })),
-        preferredResolutions: pattern.preferredResolutions || {
-          "accept-newest": 0,
-          "accept-oldest": 0,
-          "prefer-user": 0,
-          "merge-changes": 0,
-          "smart-merge": 0,
-          manual: 0,
+      // Get user details
+      const user = await db.user.findUnique({
+        where: {
+          id: userId,
         },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
+
+      if (!user) {
+        throw new Error(`User with ID ${userId} not found`)
       }
+
+      // Get total conflicts
+      const totalConflicts = await db.conflict.count({
+        where: {
+          userId,
+        },
+      })
+
+      // Get resolved conflicts
+      const resolvedConflicts = await db.conflict.count({
+        where: {
+          userId,
+          status: "resolved",
+        },
+      })
+
+      // Get pending conflicts
+      const pendingConflicts = await db.conflict.count({
+        where: {
+          userId,
+          status: "pending",
+        },
+      })
+
+      // Calculate resolution rate
+      const resolutionRate = totalConflicts > 0 ? (resolvedConflicts / totalConflicts) * 100 : 0
+
+      // Get conflicts by type
+      const conflictsByType = await db.conflict.groupBy({
+        by: ["type"],
+        where: {
+          userId,
+        },
+        _count: {
+          type: true,
+        },
+      })
+
+      // Get resolved conflicts with resolution time
+      const resolvedConflictsWithTime = await db.conflict.findMany({
+        where: {
+          userId,
+          status: "resolved",
+          resolvedAt: {
+            not: null,
+          },
+        },
+        select: {
+          createdAt: true,
+          resolvedAt: true,
+        },
+      })
+
+      // Calculate average resolution time in hours
+      let totalResolutionTime = 0
+      resolvedConflictsWithTime.forEach((conflict) => {
+        const createdAt = new Date(conflict.createdAt).getTime()
+        const resolvedAt = new Date(conflict.resolvedAt!).getTime()
+        const resolutionTime = (resolvedAt - createdAt) / (1000 * 60 * 60) // in hours
+        totalResolutionTime += resolutionTime
+      })
+
+      const averageResolutionTime =
+        resolvedConflictsWithTime.length > 0 ? totalResolutionTime / resolvedConflictsWithTime.length : 0
+
+      // Get recent conflicts
+      const recentConflicts = await db.conflict.findMany({
+        where: {
+          userId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+        select: {
+          id: true,
+          documentId: true,
+          createdAt: true,
+          status: true,
+          document: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      })
+
+      // Format the results
+      const result: UserConflictStats = {
+        userId: user.id,
+        userName: user.name,
+        totalConflicts,
+        resolvedConflicts,
+        pendingConflicts,
+        resolutionRate,
+        averageResolutionTime,
+        conflictsByType: conflictsByType.map((item) => ({
+          type: item.type,
+          count: item._count.type,
+        })),
+        recentConflicts: recentConflicts.map((conflict) => ({
+          id: conflict.id,
+          documentId: conflict.documentId,
+          documentName: conflict.document?.name || "Unknown Document",
+          createdAt: conflict.createdAt.toISOString(),
+          status: conflict.status,
+        })),
+      }
+
+      // Store in cache
+      await cacheService.set(cacheKey, result, {
+        namespace: CACHE_NAMESPACES.USER_STATS,
+        ttl: CACHE_TTL.USER_STATS,
+      })
+
+      return result
     } catch (error) {
       console.error("Error getting user conflict stats:", error)
-      return null
+      throw error
     }
   }
 
   /**
    * Get document-specific conflict statistics
    */
-  async getDocumentConflictStats(documentId: string): Promise<{
-    documentId: string
-    documentName: string
-    totalConflicts: number
-    resolvedConflicts: number
-    hotspots: Array<{
-      section: string
-      conflicts: number
-    }>
-    users: Array<{
-      userId: string
-      userName: string
-      conflicts: number
-    }>
-  } | null> {
+  async getDocumentConflictStats(documentId: string): Promise<DocumentConflictStats> {
+    // Generate cache key based on parameters
+    const cacheKey = `doc-stats:${documentId}`
+
     try {
-      // Get all conflicts for this document
-      const conflicts = await this.getAllConflicts("year", undefined, documentId)
+      // Try to get from cache first
+      const cached = await cacheService.get<DocumentConflictStats>(cacheKey, { namespace: CACHE_NAMESPACES.DOC_STATS })
 
-      if (conflicts.length === 0) {
-        return null
+      if (cached) {
+        console.log(`Serving document conflict stats from cache: ${cacheKey}`)
+        return cached
       }
 
-      // Process document stats
-      const sections: Record<string, number> = {}
-      const users: Record<
-        string,
-        {
-          userId: string
-          userName: string
-          conflicts: number
-        }
-      > = {}
+      // If not in cache, fetch from database
+      console.log(`Fetching document conflict stats from database: ${cacheKey}`)
 
-      for (const conflict of conflicts) {
-        // Count conflicts by section
-        if (!sections[conflict.section]) {
-          sections[conflict.section] = 0
-        }
-        sections[conflict.section]++
+      // Get document details
+      const document = await db.document.findUnique({
+        where: {
+          id: documentId,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
 
-        // Count conflicts by user
-        for (const user of conflict.users) {
-          if (!users[user.id]) {
-            users[user.id] = {
-              userId: user.id,
-              userName: user.name,
-              conflicts: 0,
-            }
+      if (!document) {
+        throw new Error(`Document with ID ${documentId} not found`)
+      }
+
+      // Get total conflicts
+      const totalConflicts = await db.conflict.count({
+        where: {
+          documentId,
+        },
+      })
+
+      // Get resolved conflicts
+      const resolvedConflicts = await db.conflict.count({
+        where: {
+          documentId,
+          status: "resolved",
+        },
+      })
+
+      // Get pending conflicts
+      const pendingConflicts = await db.conflict.count({
+        where: {
+          documentId,
+          status: "pending",
+        },
+      })
+
+      // Get conflicts by user
+      const conflictsByUser = await db.conflict.groupBy({
+        by: ["userId"],
+        where: {
+          documentId,
+        },
+        _count: {
+          userId: true,
+        },
+      })
+
+      // Get user details
+      const userIds = conflictsByUser.map((item) => item.userId)
+      const users = await db.user.findMany({
+        where: {
+          id: {
+            in: userIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      })
+
+      // Get conflict timeline (last 30 days)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const conflicts = await db.conflict.findMany({
+        where: {
+          documentId,
+          createdAt: {
+            gte: thirtyDaysAgo.toISOString(),
+          },
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          status: true,
+        },
+      })
+
+      // Group conflicts by date
+      const conflictsByDate = new Map<string, { conflicts: number; resolved: number }>()
+
+      // Generate all dates in the range
+      const dateRange: string[] = []
+      const tempDate = new Date(thirtyDaysAgo)
+      const now = new Date()
+      while (tempDate <= now) {
+        const dateKey = tempDate.toISOString().split("T")[0]
+        if (!conflictsByDate.has(dateKey)) {
+          conflictsByDate.set(dateKey, { conflicts: 0, resolved: 0 })
+        }
+        tempDate.setDate(tempDate.getDate() + 1)
+      }
+
+      // Count conflicts by date
+      conflicts.forEach((conflict) => {
+        const dateKey = new Date(conflict.createdAt).toISOString().split("T")[0]
+        if (!conflictsByDate.has(dateKey)) {
+          conflictsByDate.set(dateKey, { conflicts: 0, resolved: 0 })
+        }
+        const entry = conflictsByDate.get(dateKey)!
+        entry.conflicts++
+        if (conflict.status === "resolved") {
+          entry.resolved++
+        }
+      })
+
+      // Convert to array and sort by date
+      const conflictTimeline = Array.from(conflictsByDate.entries())
+        .map(([date, counts]) => ({
+          date,
+          conflicts: counts.conflicts,
+          resolved: counts.resolved,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+
+      // Get recent conflicts
+      const recentConflicts = await db.conflict.findMany({
+        where: {
+          documentId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          status: true,
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      })
+
+      // Format the results
+      const result: DocumentConflictStats = {
+        documentId: document.id,
+        documentName: document.name,
+        totalConflicts,
+        resolvedConflicts,
+        pendingConflicts,
+        conflictsByUser: conflictsByUser.map((item) => {
+          const user = users.find((u) => u.id === item.userId)
+          return {
+            userId: item.userId,
+            userName: user?.name || "Unknown User",
+            count: item._count.userId,
           }
-          users[user.id].conflicts++
-        }
+        }),
+        conflictTimeline,
+        recentConflicts: recentConflicts.map((conflict) => ({
+          id: conflict.id,
+          userId: conflict.userId,
+          userName: conflict.user?.name || "Unknown User",
+          createdAt: conflict.createdAt.toISOString(),
+          status: conflict.status,
+        })),
       }
 
-      return {
-        documentId,
-        documentName: this.getDocumentName(documentId),
-        totalConflicts: conflicts.length,
-        resolvedConflicts: conflicts.filter((c) => c.resolved).length,
-        hotspots: Object.entries(sections)
-          .map(([section, conflicts]) => ({ section, conflicts }))
-          .sort((a, b) => b.conflicts - a.conflicts),
-        users: Object.values(users).sort((a, b) => b.conflicts - a.conflicts),
-      }
+      // Store in cache
+      await cacheService.set(cacheKey, result, {
+        namespace: CACHE_NAMESPACES.DOC_STATS,
+        ttl: CACHE_TTL.DOC_STATS,
+      })
+
+      return result
     } catch (error) {
       console.error("Error getting document conflict stats:", error)
-      return null
+      throw error
+    }
+  }
+
+  /**
+   * Invalidate all caches related to conflict analytics
+   */
+  async invalidateAllCaches(): Promise<void> {
+    try {
+      await Promise.all([
+        cacheService.clearNamespace(CACHE_NAMESPACES.ANALYTICS),
+        cacheService.clearNamespace(CACHE_NAMESPACES.TIMELINE),
+        cacheService.clearNamespace(CACHE_NAMESPACES.USER_STATS),
+        cacheService.clearNamespace(CACHE_NAMESPACES.DOC_STATS),
+      ])
+      console.log("All conflict analytics caches invalidated")
+    } catch (error) {
+      console.error("Error invalidating conflict analytics caches:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Invalidate cache for a specific user
+   */
+  async invalidateUserCache(userId: string): Promise<void> {
+    try {
+      // Delete specific user stats cache
+      await cacheService.delete(`user-stats:${userId}`, {
+        namespace: CACHE_NAMESPACES.USER_STATS,
+      })
+
+      // Clear analytics and timeline caches that might contain this user's data
+      await Promise.all([
+        cacheService.clearNamespace(CACHE_NAMESPACES.ANALYTICS),
+        cacheService.clearNamespace(CACHE_NAMESPACES.TIMELINE),
+      ])
+
+      console.log(`Cache invalidated for user: ${userId}`)
+    } catch (error) {
+      console.error(`Error invalidating cache for user ${userId}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Invalidate cache for a specific document
+   */
+  async invalidateDocumentCache(documentId: string): Promise<void> {
+    try {
+      // Delete specific document stats cache
+      await cacheService.delete(`doc-stats:${documentId}`, {
+        namespace: CACHE_NAMESPACES.DOC_STATS,
+      })
+
+      // Clear analytics caches that might contain this document's data
+      await cacheService.clearNamespace(CACHE_NAMESPACES.ANALYTICS)
+
+      console.log(`Cache invalidated for document: ${documentId}`)
+    } catch (error) {
+      console.error(`Error invalidating cache for document ${documentId}:`, error)
+      throw error
     }
   }
 
@@ -792,5 +1361,4 @@ export class ConflictAnalyticsService {
   }
 }
 
-// Export singleton instance
 export const conflictAnalyticsService = new ConflictAnalyticsService()
