@@ -8,12 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getAIFamilyMember, type AIFamilyMember, type AIFamilyTask } from "@/data/ai-family-members"
-import { ArrowLeft, Clock, CheckCircle, XCircle, AlertCircle, Edit, MessageSquare, User } from "lucide-react"
+import { ArrowLeft, Clock, User } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { Progress } from "@/components/ui/progress"
 
-export default function TaskDetailPage({ params }: { params: { memberId: string; taskId: string } }) {
+export default function TaskDetailPage({ params }: { params: { id: string; taskId: string } }) {
   const router = useRouter()
   const { toast } = useToast()
   const [member, setMember] = useState<AIFamilyMember | null>(null)
@@ -25,7 +25,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
     setIsAdmin(localStorage.getItem("userRole") === "admin")
 
     // Get member data
-    const memberData = getAIFamilyMember(params.memberId)
+    const memberData = getAIFamilyMember(params.id)
     if (memberData) {
       setMember(memberData)
 
@@ -39,7 +39,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
           description: "The requested task could not be found.",
           variant: "destructive",
         })
-        router.push(`/ai-family/${params.memberId}`)
+        router.push(`/ai-family/${params.id}`)
       }
     } else {
       toast({
@@ -49,7 +49,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
       })
       router.push("/ai-family")
     }
-  }, [params.memberId, params.taskId, router, toast])
+  }, [params.id, params.taskId, router, toast])
 
   if (!member || !task) {
     return (
@@ -120,7 +120,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
     setTask({
       ...task,
       status: newStatus,
-    })
+    } as AIFamilyTask)
   }
 
   return (
@@ -159,6 +159,8 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
                 <p>{task.description}</p>
               </div>
 
+              <Separator />
+
               <div>
                 <h3 className="font-medium mb-2">Progress</h3>
                 <Progress value={getProgressValue(task.status)} className="h-2" />
@@ -176,7 +178,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Priority:</span>
-                    <Badge variant="outline" className="ml-2">
+                    <Badge variant="outline" className={task.priority === "high" ? "bg-red-100" : "bg-blue-100"}>
                       {task.priority}
                     </Badge>
                   </div>
@@ -189,24 +191,10 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
                     <span className="ml-2">{member.name}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Assigned by:</span>
-                    <span className="ml-2">{task.assignedBy || "System"}</span>
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span className="ml-2">{task.createdBy}</span>
                   </div>
                 </div>
-              </div>
-
-              <Separator />
-
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={() => router.push(`/ai-family/${member.id}/tasks/${task.id}/edit`)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Task
-                </Button>
-
-                <Button onClick={() => router.push(`/ai-family/${member.id}/chat?task=${task.id}`)}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Discuss Task
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -240,50 +228,6 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Status Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  disabled={task.status === "pending"}
-                  onClick={() => handleStatusChange("pending")}
-                >
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Mark as Pending
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  disabled={task.status === "in-progress"}
-                  onClick={() => handleStatusChange("in-progress")}
-                >
-                  <Clock className="h-4 w-4 mr-2" />
-                  Mark as In Progress
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-green-600"
-                  disabled={task.status === "completed"}
-                  onClick={() => handleStatusChange("completed")}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark as Completed
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-red-600"
-                  disabled={task.status === "cancelled"}
-                  onClick={() => handleStatusChange("cancelled")}
-                >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Mark as Cancelled
-                </Button>
-              </CardContent>
-            </Card>
-
             {isAdmin && (
               <Card>
                 <CardHeader className="pb-2">
@@ -298,7 +242,7 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
                         title: "Task Reassigned",
                         description: "You can now select a new AI Family member for this task.",
                       })
-                      router.push(`/ai-family/${member.id}/tasks/${task.id}/reassign`)
+                      router.push(`/ai-family/${member.id}/tasks/${params.taskId}/reassign`)
                     }}
                   >
                     Reassign Task
@@ -326,4 +270,9 @@ export default function TaskDetailPage({ params }: { params: { memberId: string;
       </div>
     </div>
   )
+}
+
+// Helper function for class names
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ")
 }
