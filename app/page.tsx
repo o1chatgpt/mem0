@@ -1,130 +1,133 @@
 "use client"
-
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { DashboardStats } from "@/components/dashboard-stats"
 import { FileExplorer } from "@/components/file-explorer"
-import { FileViewer } from "@/components/file-viewer"
-import { Sidebar } from "@/components/sidebar"
-import { Header } from "@/components/header"
-import { AppProvider } from "@/lib/app-context"
-import { LoadingOverlay } from "@/components/loading-overlay"
-import { ServerDashboard } from "@/components/server-dashboard"
-import { WebsiteManager } from "@/components/website-manager"
-import { FileManagementInfo } from "@/components/file-management-info"
+import { RecentMemories } from "@/components/recent-memories"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AIFamily } from "@/components/ai-family"
-import { AIFileAssistant } from "@/components/ai-file-assistant"
-import { FileAnalyzer } from "@/components/file-analyzer"
-import { RealtimeConflictDashboard } from "@/components/realtime-conflict-dashboard"
-import { DocumentEcosystem } from "@/components/document-ecosystem"
+import { Users, FolderOpen, BrainCircuit } from "lucide-react"
+import Link from "next/link"
 
-export default function FilesPage() {
-  const [activeTab, setActiveTab] = useState("files")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/check")
-        const data = await response.json()
-
-        if (data.authenticated) {
-          setIsAuthenticated(true)
-        } else {
-          // Redirect to login if not authenticated
-          router.push("/login")
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-        // On error, still allow access (fallback to client-side check)
-        setIsAuthenticated(true)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null // Don't render anything while redirecting
-  }
+export default function DashboardPage() {
+  // In a real app, this would come from authentication
+  const userId = 1 // Using the admin user we created in the database
 
   return (
-    <AppProvider>
-      <div className="flex flex-col h-screen">
-        <Header activeTab={activeTab} onTabChange={setActiveTab} />
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">File Manager Dashboard</h1>
+        <div className="flex space-x-2">
+          <Link href="/ai-family">
+            <Button variant="outline">
+              <Users className="mr-2 h-4 w-4" />
+              AI Family
+            </Button>
+          </Link>
+          <Link href="/mem0-integration">
+            <Button variant="outline">
+              <BrainCircuit className="mr-2 h-4 w-4" />
+              Mem0 Integration
+            </Button>
+          </Link>
+        </div>
+      </div>
 
-        <div className="flex-1 overflow-hidden p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-            <TabsList className="mb-4">
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="server">Server</TabsTrigger>
-              <TabsTrigger value="websites">Websites</TabsTrigger>
-              <TabsTrigger value="info">System Info</TabsTrigger>
-              <TabsTrigger value="ai-family">AI Family</TabsTrigger>
-              <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
-              <TabsTrigger value="realtime-conflicts">Realtime Conflicts</TabsTrigger>
+      <DashboardStats userId={userId} />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <Tabs defaultValue="files">
+            <TabsList>
+              <TabsTrigger value="files">
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Files & Folders
+              </TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="shared">Shared</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="files" className="h-[calc(100%-40px)]">
-              <div className="flex h-full overflow-hidden">
-                <Sidebar />
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <div className="flex flex-1 overflow-hidden">
-                    <FileExplorer />
-                    <FileViewer />
-                  </div>
-                  <div className="h-1/3 mt-4">
-                    <FileAnalyzer />
-                  </div>
-                </div>
+            <TabsContent value="files" className="mt-4">
+              <div className="h-[500px]">
+                <FileExplorer userId={userId} />
               </div>
             </TabsContent>
-
-            <TabsContent value="documents" className="h-[calc(100%-40px)]">
-              <DocumentEcosystem />
+            <TabsContent value="recent" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Files</CardTitle>
+                  <CardDescription>Files you've recently accessed</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>Coming soon...</p>
+                </CardContent>
+              </Card>
             </TabsContent>
-
-            <TabsContent value="server">
-              <ServerDashboard />
-            </TabsContent>
-
-            <TabsContent value="websites">
-              <WebsiteManager />
-            </TabsContent>
-
-            <TabsContent value="info">
-              <FileManagementInfo />
-            </TabsContent>
-
-            <TabsContent value="ai-family" className="h-[calc(100%-40px)]">
-              <AIFamily />
-            </TabsContent>
-
-            <TabsContent value="ai-assistant" className="h-[calc(100%-40px)]">
-              <AIFileAssistant />
-            </TabsContent>
-
-            <TabsContent value="realtime-conflicts" className="h-[calc(100%-40px)]">
-              <RealtimeConflictDashboard />
+            <TabsContent value="shared" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Shared Files</CardTitle>
+                  <CardDescription>Files shared with you</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>Coming soon...</p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        <LoadingOverlay />
+        <div className="space-y-6">
+          <RecentMemories userId={userId} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-medium">AI Family</CardTitle>
+              <CardDescription>Your AI assistants</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Link href="/ai-family/1/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-blue-100 text-blue-800 p-2 rounded-full mr-3">A</div>
+                      <div className="text-left">
+                        <div className="font-medium">Archie</div>
+                        <div className="text-xs text-muted-foreground">File Organizer</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family/2/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-purple-100 text-purple-800 p-2 rounded-full mr-3">P</div>
+                      <div className="text-left">
+                        <div className="font-medium">Pixel</div>
+                        <div className="text-xs text-muted-foreground">Media Assistant</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family/4/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-green-100 text-green-800 p-2 rounded-full mr-3">M</div>
+                      <div className="text-left">
+                        <div className="font-medium">Memo</div>
+                        <div className="text-xs text-muted-foreground">Memory Keeper</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family">
+                  <Button variant="ghost" className="w-full mt-2">
+                    View all AI Family Members
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </AppProvider>
+    </div>
   )
 }
