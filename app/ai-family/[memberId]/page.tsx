@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
-export default function AIFamilyMemberPage({ params }: { params: { memberId: string } }) {
+export default function CeciliaPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { toast } = useToast()
   const [member, setMember] = useState<AIFamilyMember | null>(null)
@@ -36,7 +36,7 @@ export default function AIFamilyMemberPage({ params }: { params: { memberId: str
     setIsAdmin(localStorage.getItem("userRole") === "admin")
 
     // Get member data
-    const memberData = getAIFamilyMember(params.memberId)
+    const memberData = getAIFamilyMember(params.id)
     if (memberData) {
       setMember(memberData)
     } else {
@@ -47,7 +47,7 @@ export default function AIFamilyMemberPage({ params }: { params: { memberId: str
       })
       router.push("/ai-family")
     }
-  }, [params.memberId, router, toast])
+  }, [params.id, router, toast])
 
   if (!member) {
     return (
