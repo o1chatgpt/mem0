@@ -1,14 +1,14 @@
 import type React from "react"
+import { Inter } from "next/font/google"
 import "./globals.css"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import { SupabaseProvider } from "@/lib/supabase-context"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "File Manager with Mem0",
-  description: "A file manager with AI family members powered by Mem0",
+  title: "StreamLine - Modern SaaS Platform",
+  description: "Streamline your workflow with our powerful SaaS solution",
     generator: 'v0.dev'
 }
 
@@ -20,7 +20,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SupabaseProvider>{children}</SupabaseProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   )
