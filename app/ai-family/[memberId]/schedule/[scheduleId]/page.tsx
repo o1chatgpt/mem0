@@ -12,7 +12,7 @@ import { ArrowLeft, Calendar, Clock, Edit, User, Repeat, CalendarDays, Trash2 } 
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 
-export default function ScheduleDetailPage({ params }: { params: { memberId: string; scheduleId: string } }) {
+export default function ScheduleDetailPage({ params }: { params: { id: string; scheduleId: string } }) {
   const router = useRouter()
   const { toast } = useToast()
   const [member, setMember] = useState<AIFamilyMember | null>(null)
@@ -24,7 +24,7 @@ export default function ScheduleDetailPage({ params }: { params: { memberId: str
     setIsAdmin(localStorage.getItem("userRole") === "admin")
 
     // Get member data
-    const memberData = getAIFamilyMember(params.memberId)
+    const memberData = getAIFamilyMember(params.id)
     if (memberData) {
       setMember(memberData)
 
@@ -38,7 +38,7 @@ export default function ScheduleDetailPage({ params }: { params: { memberId: str
           description: "The requested schedule item could not be found.",
           variant: "destructive",
         })
-        router.push(`/ai-family/${params.memberId}`)
+        router.push(`/ai-family/${params.id}`)
       }
     } else {
       toast({
@@ -48,7 +48,7 @@ export default function ScheduleDetailPage({ params }: { params: { memberId: str
       })
       router.push("/ai-family")
     }
-  }, [params.memberId, params.scheduleId, router, toast])
+  }, [params.id, params.scheduleId, router, toast])
 
   if (!member || !scheduleItem) {
     return (

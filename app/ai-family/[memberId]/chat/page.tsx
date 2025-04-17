@@ -10,7 +10,7 @@ import { ArrowLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EnhancedChatWithVoice } from "@/components/enhanced-chat-with-voice"
 
-export default function AIFamilyChatPage({ params }: { params: { memberId: string } }) {
+export default function AIFamilyChatPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -23,7 +23,7 @@ export default function AIFamilyChatPage({ params }: { params: { memberId: strin
 
   useEffect(() => {
     // Get member data
-    const memberData = getAIFamilyMember(params.memberId)
+    const memberData = getAIFamilyMember(params.id)
     if (memberData) {
       setMember(memberData)
     } else {
@@ -45,7 +45,7 @@ export default function AIFamilyChatPage({ params }: { params: { memberId: strin
     if (savedElevenlabsApiKey) {
       setElevenlabsApiKey(savedElevenlabsApiKey)
     }
-  }, [params.memberId, router, toast])
+  }, [params.id, router, toast])
 
   const handleSaveConversation = (messages: any[]) => {
     // In a real app, this would save to a database
@@ -98,7 +98,7 @@ export default function AIFamilyChatPage({ params }: { params: { memberId: strin
           </Button>
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border-2" style={{ borderColor: member.color }}>
-              <AvatarImage src={member.avatarUrl} alt={member.name} />
+              <AvatarImage src={member.avatarUrl || "/placeholder.svg"} alt={member.name} />
               <AvatarFallback style={{ backgroundColor: `${member.color}20`, color: member.color }}>
                 {member.name.charAt(0)}
               </AvatarFallback>
