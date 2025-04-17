@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AIFamily } from "@/components/ai-family"
 import { AIFileAssistant } from "@/components/ai-file-assistant"
 import { FileAnalyzer } from "@/components/file-analyzer"
+import { RealtimeConflictDashboard } from "@/components/realtime-conflict-dashboard"
 import { DocumentEcosystem } from "@/components/document-ecosystem"
 
 export default function FilesPage() {
@@ -74,6 +75,7 @@ export default function FilesPage() {
               <TabsTrigger value="info">System Info</TabsTrigger>
               <TabsTrigger value="ai-family">AI Family</TabsTrigger>
               <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
+              <TabsTrigger value="realtime-conflicts">Realtime Conflicts</TabsTrigger>
             </TabsList>
 
             <TabsContent value="files" className="h-[calc(100%-40px)]">
@@ -113,6 +115,10 @@ export default function FilesPage() {
 
             <TabsContent value="ai-assistant" className="h-[calc(100%-40px)]">
               <AIFileAssistant />
+            </TabsContent>
+
+            <TabsContent value="realtime-conflicts" className="h-[calc(100%-40px)]">
+              <RealtimeConflictDashboard />
             </TabsContent>
           </Tabs>
         </div>

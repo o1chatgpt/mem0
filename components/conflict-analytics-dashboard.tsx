@@ -62,12 +62,23 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>(userId)
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | undefined>(documentId)
+  const [availableUsers, setAvailableUsers] = useState<
+    {
+      userId: string
+      userName: string
+    }[]
+  >([])
 
   // Fetch analytics data
   const fetchData = async () => {
     setLoading(true)
     try {
-      // In a real implementation, these would be API calls
+      // Load available users
+      const usersResponse = await fetch("/api/users")
+      const usersData = await usersResponse.json()
+      setAvailableUsers(usersData)
+
+      // Load analytics data from the API client (which now returns mock data)
       const response = await fetch(
         `/api/conflict-analytics?timeRange=${timeRange}${selectedUserId ? `&userId=${selectedUserId}` : ""}${selectedDocumentId ? `&documentId=${selectedDocumentId}` : ""}`,
       )
@@ -88,13 +99,7 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
         setUserStats(userStatsData)
       }
     } catch (error) {
-      console.error("Error fetching analytics data:", error)
-      // Use mock data for demo purposes
-      setAnalytics(getMockAnalytics())
-      setTimeline(getMockTimeline())
-      if (selectedUserId) {
-        setUserStats(getMockUserStats(selectedUserId))
-      }
+      console.error("Error loading server data:", error)
     } finally {
       setLoading(false)
     }
@@ -431,6 +436,20 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
             </SelectContent>
           </Select>
 
+          <Select value={selectedUserId} onValueChange={(value) => setSelectedUserId(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={undefined}>All Users</SelectItem>
+              {availableUsers.map((user) => (
+                <SelectItem key={user.userId} value={user.userId}>
+                  {user.userName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Button variant="outline" size="icon" onClick={fetchData}>
             <RefreshCw className="h-4 w-4" />
           </Button>
@@ -593,9 +612,9 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
                         <Zap className="h-4 w-4" />
                         <AlertTitle>Effective Resolution Strategy</AlertTitle>
                         <AlertDescription>
-                          The "{strategyLabels[analytics.byStrategy[0].strategy]}" strategy has a
-                          {formatPercentage(analytics.byStrategy[0].successRate)} success rate. Consider using this
-                          strategy more often.
+                          The "{strategyLabels[analytics.byStrategy[0].strategy]}" strategy has been highly effective
+                          with a {formatPercentage(analytics.byStrategy[0].successRate)} success rate. Consider using
+                          this strategy more often.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -710,17 +729,11 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
                                   <User className="h-4 w-4 text-gray-500" />
                                 </div>
                                 <div>
-                                  <div className="text-sm font-medium">{collaborator.userName}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {collaborator.conflicts} conflicts
+                                  <div className="font-medium">{collaborator.userName}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {collaborator.conflicts} conflicts, {collaborator.resolutionRate} resolution rate
                                   </div>
                                 </div>
-                              </div>
-                              <div>
-                                <div className="text-sm font-medium">
-                                  {formatPercentage(collaborator.resolutionRate)}
-                                </div>
-                                <div className="text-xs text-muted-foreground">resolution rate</div>
                               </div>
                             </div>
                           ))}
@@ -841,28 +854,6 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
                             </div>
                           </div>
                         </div>
-
-                        {selectedDocumentId === doc.documentId && (
-                          <div className="mt-4">
-                            <h4 className="text-sm font-medium mb-2">Conflict Hotspots</h4>
-                            <div className="space-y-2">
-                              {doc.hotspots.map((hotspot) => (
-                                <div key={hotspot.section} className="flex justify-between items-center">
-                                  <div className="text-sm">{hotspot.section}</div>
-                                  <div className="flex items-center">
-                                    <div className="text-sm font-medium mr-2">{hotspot.conflicts}</div>
-                                    <div className="w-16 bg-gray-200 rounded-full h-2">
-                                      <div
-                                        className="bg-yellow-500 h-2 rounded-full"
-                                        style={{ width: `${(hotspot.conflicts / doc.conflicts) * 100}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -927,80 +918,6 @@ export function ConflictAnalyticsDashboard({ userId, documentId }: ConflictAnaly
                   </Card>
                 </div>
               </div>
-
-              {/* Strategy Details */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Strategy Comparison</CardTitle>
-                  <CardDescription>Detailed metrics for each resolution strategy</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4">Strategy</th>
-                          <th className="text-left py-3 px-4">Usage</th>
-                          <th className="text-left py-3 px-4">Success Rate</th>
-                          <th className="text-left py-3 px-4">Avg. Resolution Time</th>
-                          <th className="text-left py-3 px-4">Recommendation</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analytics.byStrategy.map((strategy) => (
-                          <tr key={strategy.strategy} className="border-b">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center">
-                                <div
-                                  className="w-3 h-3 rounded-full mr-2"
-                                  style={{ backgroundColor: strategyColors[strategy.strategy] }}
-                                ></div>
-                                <span>{strategyLabels[strategy.strategy]}</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              {strategy.count} conflicts
-                              <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
-                                <div
-                                  className="bg-blue-500 h-2 rounded-full"
-                                  style={{
-                                    width: `${(strategy.count / analytics.summary.resolvedConflicts) * 100}%`,
-                                  }}
-                                ></div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">
-                              {formatPercentage(strategy.successRate)}
-                              <div className="w-24 bg-gray-200 rounded-full h-2 mt-1">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    strategy.successRate > 0.8
-                                      ? "bg-green-500"
-                                      : strategy.successRate > 0.5
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                  }`}
-                                  style={{ width: `${strategy.successRate * 100}%` }}
-                                ></div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4">{strategy.averageResolutionTime} min</td>
-                            <td className="py-3 px-4">
-                              {strategy.successRate > 0.8 ? (
-                                <Badge className="bg-green-100 text-green-800">Recommended</Badge>
-                              ) : strategy.successRate > 0.5 ? (
-                                <Badge className="bg-yellow-100 text-yellow-800">Consider</Badge>
-                              ) : (
-                                <Badge className="bg-red-100 text-red-800">Avoid</Badge>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
 
               {/* Strategy Insights */}
               <Card>
