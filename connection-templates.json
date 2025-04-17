@@ -1,0 +1,36 @@
+{
+  "database": {
+    "postgresql": {
+      "connectionString": "postgresql://username:password@localhost:5432/database",
+      "template": "postgresql://{username}:{password}@{host}:{port}/{database}",
+      "defaultPort": "5432"
+    },
+    "mysql": {
+      "connectionString": "mysql://username:password@localhost:3306/database",
+      "template": "mysql://{username}:{password}@{host}:{port}/{database}",
+      "defaultPort": "3306"
+    },
+    "mongodb": {
+      "connectionString": "mongodb://username:password@localhost:27017/database",
+      "template": "mongodb://{username}:{password}@{host}:{port}/{database}",
+      "defaultPort": "27017"
+    },
+    "sqlite": {
+      "connectionString": "file:./database.sqlite",
+      "template": "file:{path}"
+    }
+  },
+  "mem0": {
+    "apiUrl": "https://api.mem0.ai",
+    "apiKeyFormat": "mem0_api_key_..."
+  },
+  "openai": {
+    "apiUrl": "https://api.openai.com/v1",
+    "apiKeyFormat": "sk-..."
+  },
+  "ftp": {
+    "connectionString": "ftp://username:password@host:21/path",
+    "template": "ftp://{username}:{password}@{host}:{port}/{path}",
+    "defaultPort": "21"
+  }
+}

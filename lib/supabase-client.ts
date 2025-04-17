@@ -1,54 +1,29 @@
-import { createClient } from "@supabase/supabase-js"
-import { config } from "./config"
+"use client"
 
-// Create a single supabase client for the entire application
-const supabaseUrl = config.supabaseUrl
-const supabaseAnonKey = config.supabaseAnonKey
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase URL or Anon Key. Using fallback values for development.")
-}
+// Singleton pattern to prevent multiple instances
+let supabaseClient: ReturnType<typeof createSupabaseClient> | null = null
 
-// Use fallback values for development/preview environments
-const finalSupabaseUrl = supabaseUrl || "https://biilgjnihzcxecvgjhvg.supabase.co"
-const finalSupabaseAnonKey =
-  supabaseAnonKey ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpaWxnam5paHpjeGVjdmdqaHZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5NDM4MjQsImV4cCI6MjA1ODUxOTgyNH0.etleU8E5U1DinUK6W-jo3f0R6DTW8-DLiU73yo1qDu0"
+export function createClient() {
+  if (supabaseClient) return supabaseClient
 
-export const supabase = createClient(finalSupabaseUrl, finalSupabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
-})
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Helper function to get the current session
-export const getCurrentSession = async () => {
-  try {
-    const { data, error } = await supabase.auth.getSession()
-    if (error) {
-      console.error("Error getting session:", error.message)
-      return null
-    }
-    return data.session
-  } catch (error) {
-    console.error("Unexpected error getting session:", error)
-    return null
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase environment variables")
   }
+
+  supabaseClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  })
+
+  return supabaseClient
 }
 
-// Helper function to get the current user
-export const getCurrentUser = async () => {
-  try {
-    const { data, error } = await supabase.auth.getUser()
-    if (error) {
-      console.error("Error getting user:", error.message)
-      return null
-    }
-    return data.user
-  } catch (error) {
-    console.error("Unexpected error getting user:", error)
-    return null
-  }
-}
+// Export a pre-initialized supabase client instance
+export const supabase = createClient()

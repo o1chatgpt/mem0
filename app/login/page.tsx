@@ -1,94 +1,111 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, LogIn } from "lucide-react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "@/components/ui/use-toast"
+
+const formSchema = z.object({
+  username: z.string().min(2, {
+    message: "Username must be at least 2 characters.",
+  }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
+})
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
   const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Check if user is already authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/check")
-        const data = await response.json()
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  })
 
-        if (data.authenticated) {
-          // User is already authenticated, redirect to main page
-          router.push("/")
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-      } finally {
-        setAuthChecked(true)
-      }
-    }
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true)
 
-    checkAuth()
-  }, [router])
+    // Simulate login
+    setTimeout(() => {
+      // In a real app, you would validate credentials with your backend
+      if (values.username === "admin" && values.password === "password") {
+        // Set a cookie to simulate authentication
+        document.cookie = "admin_session=true; path=/; max-age=86400"
+        document.cookie = "user_id=00000000-0000-0000-0000-000000000001; path=/; max-age=86400"
 
-  const handleBypassLogin = async () => {
-    setLoading(true)
-
-    try {
-      // Call the bypass login endpoint
-      const response = await fetch("/api/auth/bypass-login")
-      const data = await response.json()
-
-      if (data.success) {
-        // Use router.push instead of window.location for a smoother transition
+        // Redirect to dashboard
         router.push("/")
+        router.refresh()
       } else {
-        console.error("Login failed:", data.error)
-        setLoading(false)
+        toast({
+          title: "Login failed",
+          description: "Invalid username or password. Try admin/password.",
+          variant: "destructive",
+        })
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error("Login error:", error)
-      setLoading(false)
-    }
-  }
-
-  // Don't render anything until we've checked authentication
-  if (!authChecked) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
+    }, 1000)
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            <Brain className="h-12 w-12 text-primary" />
-          </div>
-          <CardTitle className="text-2xl text-center">File Manager with Mem0</CardTitle>
-          <CardDescription className="text-center">Access your files and server</CardDescription>
+    <div className="flex min-h-screen items-center justify-center">
+      <Card className="w-[400px]">
+        <CardHeader>
+          <CardTitle>Login</CardTitle>
+          <CardDescription>Enter your credentials to access the AI Family Manager</CardDescription>
         </CardHeader>
-
-        <CardContent className="space-y-4">
-          <Button className="w-full py-6 text-lg" onClick={handleBypassLogin} disabled={loading}>
-            <LogIn className="h-5 w-5 mr-2" />
-            {loading ? "Logging in..." : "Enter File Manager"}
-          </Button>
-
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              If the login button doesn't work, use the direct entry link:
-            </p>
-            <Button asChild variant="outline">
-              <Link href="/direct-entry">Direct Entry (No Authentication)</Link>
-            </Button>
-          </div>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="admin" {...field} />
+                    </FormControl>
+                    <FormDescription>Use "admin" for demo purposes.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••" {...field} />
+                    </FormControl>
+                    <FormDescription>Use "password" for demo purposes.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Login"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-muted-foreground">
+            Demo credentials: username: <strong>admin</strong>, password: <strong>password</strong>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   )

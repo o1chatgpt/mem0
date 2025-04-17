@@ -1,197 +1,112 @@
-import { config } from "./config"
-
-interface MemoryResponse {
-  results: Array<{
-    id: string
-    memory: string
-    metadata?: Record<string, any>
-    timestamp: number
-  }>
-}
-
+// Mem0 client for interacting with the Mem0 API
 export class Mem0Client {
   private apiKey: string
   private apiUrl: string
-  private isAvailable = false
-  private structuredEndpointAvailable = false
-  private memoryEndpointAvailable = false // New flag to track memory endpoint availability
 
-  constructor() {
-    this.apiKey = config.mem0ApiKey || ""
-    this.apiUrl = config.mem0ApiUrl || "https://api.mem0.ai"
-
-    // In preview environment, assume API is not available to avoid errors
-    this.isAvailable = process.env.NODE_ENV === "production" && !!this.apiKey
-
-    console.log(`Mem0Client initialized with API ${this.isAvailable ? "enabled" : "disabled"}`)
+  constructor(apiKey: string, apiUrl = "https://api.mem0.ai") {
+    this.apiKey = apiKey
+    this.apiUrl = apiUrl
   }
 
-  private async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
-    if (!this.isAvailable) {
-      throw new Error("Mem0 API is not available - API key is missing or in preview environment")
-    }
-
-    // Skip structured endpoint if we know it's not available
-    if (endpoint.includes("/memory/structured") && !this.structuredEndpointAvailable) {
-      throw new Error("Structured memory endpoint is not available")
-    }
-
-    // Skip memory endpoint if we know it's not available
-    if (endpoint === "/memory" && !this.memoryEndpointAvailable) {
-      throw new Error("Memory endpoint is not available")
-    }
-
-    const headers = {
-      Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json",
-      ...options.headers,
-    }
-
+  // Search for memories
+  async searchMemories(query: string, userId = "default_user", limit = 10) {
     try {
-      const response = await fetch(`${this.apiUrl}${endpoint}`, {
-        ...options,
-        headers,
+      const url = new URL(`${this.apiUrl}/memories/search`)
+      url.searchParams.append("user_id", userId)
+      url.searchParams.append("query", query)
+      url.searchParams.append("limit", limit.toString())
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
       })
 
       if (!response.ok) {
-        // If we get a 404 on the structured endpoint, mark it as unavailable
-        if (response.status === 404 && endpoint.includes("/memory/structured")) {
-          this.structuredEndpointAvailable = false
-          console.warn("Mem0 structured memory endpoint is not available, will use local fallback")
-          throw new Error(`Mem0 API structured endpoint not available: ${response.status} ${response.statusText}`)
-        }
-
-        // If we get a 404 on the memory endpoint, mark it as unavailable
-        if (response.status === 404 && endpoint === "/memory") {
-          this.memoryEndpointAvailable = false
-          console.warn("Mem0 memory endpoint is not available, will use local fallback")
-          throw new Error(`Mem0 API memory endpoint not available: ${response.status} ${response.statusText}`)
-        }
-
-        throw new Error(`Mem0 API error: ${response.status} ${response.statusText}`)
+        throw new Error(`Failed to search memories: ${response.statusText}`)
       }
 
-      // If we successfully access an endpoint, mark it as available
-      if (endpoint.includes("/memory/structured")) {
-        this.structuredEndpointAvailable = true
-      }
-      if (endpoint === "/memory") {
-        this.memoryEndpointAvailable = true
-      }
-
-      return response.json()
-    } catch (error) {
-      console.error(`Mem0 API fetch error for ${endpoint}:`, error)
-      throw error
-    }
-  }
-
-  async add(messages: Array<{ role: string; content: string }>, userId: string): Promise<void> {
-    if (!this.isAvailable || !this.memoryEndpointAvailable) {
-      console.log("Skipping Mem0 API add - API or memory endpoint not available")
-      return
-    }
-
-    try {
-      await this.fetchWithAuth("/memory", {
-        method: "POST",
-        body: JSON.stringify({
-          messages,
-          user_id: userId,
-        }),
-      })
-    } catch (error) {
-      console.error("Error adding memory:", error)
-      // Mark memory endpoint as unavailable if we get an error
-      this.memoryEndpointAvailable = false
-      throw error
-    }
-  }
-
-  async search(query: string, userId: string, limit = 5): Promise<MemoryResponse> {
-    if (!this.isAvailable || !this.memoryEndpointAvailable) {
-      console.log("Skipping Mem0 API search - API or memory endpoint not available")
-      return { results: [] }
-    }
-
-    try {
-      return await this.fetchWithAuth(
-        `/memory/search?query=${encodeURIComponent(query)}&user_id=${encodeURIComponent(userId)}&limit=${limit}`,
-      )
+      return await response.json()
     } catch (error) {
       console.error("Error searching memories:", error)
-      // Mark memory endpoint as unavailable if we get an error
-      this.memoryEndpointAvailable = false
-      return { results: [] }
+      throw error
     }
   }
 
-  async storeMemory<T>(userId: string, key: string, data: T): Promise<void> {
-    if (!this.isAvailable || !this.structuredEndpointAvailable) {
-      console.log("Skipping Mem0 API structured store - API or structured endpoint not available")
-      return
-    }
-
+  // Add a new memory
+  async addMemory(content: string, userId = "default_user", metadata = {}) {
     try {
-      await this.fetchWithAuth("/memory/structured", {
+      const response = await fetch(`${this.apiUrl}/memories`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
         body: JSON.stringify({
           user_id: userId,
-          key,
-          data,
+          memory: content,
+          metadata,
         }),
       })
+
+      if (!response.ok) {
+        throw new Error(`Failed to add memory: ${response.statusText}`)
+      }
+
+      return await response.json()
     } catch (error) {
-      console.error("Error storing structured memory:", error)
-      this.structuredEndpointAvailable = false
+      console.error("Error adding memory:", error)
       throw error
     }
   }
 
-  async retrieveMemory<T>(userId: string, key: string): Promise<T | null> {
-    if (!this.isAvailable || !this.structuredEndpointAvailable) {
-      console.log("Skipping Mem0 API structured retrieve - API or structured endpoint not available")
-      return null
-    }
-
+  // Get all memories for a user
+  async getMemories(userId = "default_user", limit = 100) {
     try {
-      const response = await this.fetchWithAuth(
-        `/memory/structured?user_id=${encodeURIComponent(userId)}&key=${encodeURIComponent(key)}`,
-      )
-      return response.data as T
-    } catch (error) {
-      console.error("Error retrieving structured memory:", error)
-      // If we get here due to a 404, structuredEndpointAvailable will be set to false
-      return null
-    }
-  }
+      const url = new URL(`${this.apiUrl}/memories`)
+      url.searchParams.append("user_id", userId)
+      url.searchParams.append("limit", limit.toString())
 
-  async clearMemory(userId: string): Promise<void> {
-    if (!this.isAvailable || !this.memoryEndpointAvailable) {
-      console.log("Skipping Mem0 API clear - API or memory endpoint not available")
-      return
-    }
-
-    try {
-      await this.fetchWithAuth(`/memory?user_id=${encodeURIComponent(userId)}`, {
-        method: "DELETE",
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
       })
+
+      if (!response.ok) {
+        throw new Error(`Failed to get memories: ${response.statusText}`)
+      }
+
+      return await response.json()
     } catch (error) {
-      console.error("Error clearing memory:", error)
-      // Mark memory endpoint as unavailable if we get an error
-      this.memoryEndpointAvailable = false
+      console.error("Error getting memories:", error)
       throw error
     }
   }
 
-  isApiAvailable(): boolean {
-    return this.isAvailable && this.memoryEndpointAvailable
-  }
+  // Delete a memory
+  async deleteMemory(memoryId: string) {
+    try {
+      const response = await fetch(`${this.apiUrl}/memories/${memoryId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      })
 
-  isStructuredEndpointAvailable(): boolean {
-    return this.isAvailable && this.structuredEndpointAvailable
+      if (!response.ok) {
+        throw new Error(`Failed to delete memory: ${response.statusText}`)
+      }
+
+      return true
+    } catch (error) {
+      console.error("Error deleting memory:", error)
+      throw error
+    }
   }
 }
-
-// Create a singleton instance
-export const mem0Client = new Mem0Client()
