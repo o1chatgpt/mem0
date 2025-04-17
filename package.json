@@ -84,8 +84,8 @@
     "@supabase/auth-helpers-nextjs": "latest",
     "uuid": "latest",
     "diff-match-patch": "latest",
-    "@vercel/kv": "latest",
-    "@prisma/client": "latest"
+    "@prisma/client": "latest",
+    "@vercel/kv": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
