@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Zap, Mail, Lock, Loader2 } from "lucide-react"
@@ -12,12 +12,21 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
 import { toast } from "@/components/ui/use-toast"
+import { useAuth } from "@/components/auth-provider"
 
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { session } = useAuth()
+
+  // If already logged in, redirect to dashboard
+  useEffect(() => {
+    if (session) {
+      router.push("/dashboard")
+    }
+  }, [session, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,8 +51,8 @@ export function LoginForm() {
         description: "You have been logged in successfully.",
       })
 
-      // Use window.location for a full page refresh to ensure auth state is updated
-      window.location.href = "/dashboard"
+      // Use router.push for navigation
+      router.push("/dashboard")
     } catch (error: any) {
       console.error("Login error:", error)
       toast({
@@ -56,9 +65,64 @@ export function LoginForm() {
     }
   }
 
-  // For testing - let's add a direct navigation button
-  const goToDashboard = () => {
-    window.location.href = "/dashboard"
+  // For testing - let's create a test login function
+  const handleTestLogin = async () => {
+    setIsLoading(true)
+    try {
+      // Create a test session directly
+      const testEmail = "test@example.com"
+      const testPassword = "password123"
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      })
+
+      if (error) {
+        // If the test user doesn't exist, try to create it
+        if (error.message.includes("Invalid login credentials")) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: testEmail,
+            password: testPassword,
+            options: {
+              data: {
+                full_name: "Test User",
+              },
+            },
+          })
+
+          if (signUpError) {
+            throw signUpError
+          }
+
+          toast({
+            title: "Test account created",
+            description: "A test account has been created and you are now logged in.",
+          })
+
+          router.push("/dashboard")
+          return
+        }
+
+        throw error
+      }
+
+      toast({
+        title: "Test login successful",
+        description: "You have been logged in with a test account.",
+      })
+
+      router.push("/dashboard")
+    } catch (error: any) {
+      console.error("Test login error:", error)
+      toast({
+        title: "Test login failed",
+        description: error.message || "An error occurred during test login.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -124,14 +188,15 @@ export function LoginForm() {
             )}
           </Button>
 
-          {/* Temporary direct navigation button for testing */}
+          {/* Test login button */}
           <Button
             type="button"
             variant="outline"
             className="w-full mt-2 border-gray-700 text-white"
-            onClick={goToDashboard}
+            onClick={handleTestLogin}
+            disabled={isLoading}
           >
-            Go to Dashboard Directly
+            Test Login (No Account Required)
           </Button>
         </form>
       </CardContent>

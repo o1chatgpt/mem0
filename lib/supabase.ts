@@ -25,7 +25,14 @@ export const supabase = (() => {
           signUp: async () => ({ data: null, error: new Error("Mock Supabase client") }),
           signOut: async () => ({ error: null }),
           getSession: async () => ({ data: { session: null } }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         },
+        from: () => ({
+          select: () => ({ data: [], error: null }),
+          insert: () => ({ data: null, error: null }),
+          update: () => ({ data: null, error: null }),
+          eq: () => ({ data: null, error: null, order: () => ({ data: null, error: null }) }),
+        }),
       } as any
     }
 
@@ -36,7 +43,9 @@ export const supabase = (() => {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      storageKey: "supabase-auth-token",
+      storageKey: "supabase-auth",
+      detectSessionInUrl: true,
+      flowType: "implicit",
     },
   })
 

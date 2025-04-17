@@ -21,6 +21,7 @@ import { IntegrationConfigModal } from "@/components/integration-config-modal"
 // Add the import statements for Mem0 components at the top of the file
 import { Mem0Memories } from "./mem0-memories"
 import { Mem0Chat } from "./mem0-chat"
+import { Mem0Categories } from "./mem0-categories"
 
 interface DashboardProps {
   user: any
@@ -371,6 +372,11 @@ export function Dashboard({ user, userIntegrations }: DashboardProps) {
                           integration={userIntegrations.find((ui: any) => ui.integration_id === "mem0" && ui.is_active)}
                         />
                         <Mem0Chat
+                          integration={userIntegrations.find((ui: any) => ui.integration_id === "mem0" && ui.is_active)}
+                        />
+                      </div>
+                      <div className="mt-6">
+                        <Mem0Categories
                           integration={userIntegrations.find((ui: any) => ui.integration_id === "mem0" && ui.is_active)}
                         />
                       </div>
