@@ -1,127 +1,164 @@
-import { Memory } from "mem0ai"
+import { serverConfig } from "./config"
 
-// Initialize the Mem0 client
-let memoryInstance: Memory | null = null
+// Mem0 client for interacting with the Mem0 API
+export class Memory {
+  private apiKey: string
+  private apiUrl: string
+  private isAvailable: boolean
 
-export function getMemoryClient() {
-  if (!memoryInstance) {
-    memoryInstance = new Memory({
-      apiKey: process.env.MEM0_API_KEY,
-      apiUrl: process.env.MEM0_API_URL || "https://api.mem0.ai",
-    })
+  constructor() {
+    this.apiKey = serverConfig.mem0ApiKey || ""
+    this.apiUrl = serverConfig.mem0ApiUrl || "https://api.mem0.ai"
+    this.isAvailable = !!this.apiKey
   }
 
-  return memoryInstance
-}
-
-// Helper function to search memories
-export async function searchMemories(query: string, userId: string, limit = 5, tag?: string | null) {
-  const memory = getMemoryClient()
-
-  try {
-    // Build search options
-    const searchOptions: any = {
-      query,
-      user_id: userId,
-      limit,
+  async add(messages: { role: string; content: string }[], userId: string) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return null
     }
 
-    // Add tag filter if provided
-    if (tag) {
-      searchOptions.filter = {
-        tags: [tag],
-      }
-    }
-
-    const results = await memory.search(searchOptions)
-
-    return results
-  } catch (error) {
-    console.error("Error searching memories:", error)
-    throw error
-  }
-}
-
-// Helper function to add a memory
-export async function addMemory(messages: any[], userId: string, tags?: string[]) {
-  const memory = getMemoryClient()
-
-  try {
-    // Create memory options
-    const options: any = { user_id: userId }
-
-    // Add tags if provided
-    if (tags && tags.length > 0) {
-      options.metadata = {
-        tags,
-      }
-    }
-
-    await memory.add(messages, options)
-    return true
-  } catch (error) {
-    console.error("Error adding memory:", error)
-    throw error
-  }
-}
-
-// Helper function to get user memories
-export async function getUserMemories(userId: string, limit = 10, tag?: string | null) {
-  const memory = getMemoryClient()
-
-  try {
-    // Build search options
-    const searchOptions: any = {
-      query: "*",
-      user_id: userId,
-      limit,
-    }
-
-    // Add tag filter if provided
-    if (tag) {
-      searchOptions.filter = {
-        tags: [tag],
-      }
-    }
-
-    const results = await memory.search(searchOptions)
-
-    return results
-  } catch (error) {
-    console.error("Error getting user memories:", error)
-    throw error
-  }
-}
-
-// Helper function to get all user tags
-export async function getUserTags(userId: string) {
-  const memory = getMemoryClient()
-
-  try {
-    // First try to get all memories to extract tags
-    const results = await memory.search({
-      query: "*",
-      user_id: userId,
-      limit: 100,
-    })
-
-    // Extract unique tags from all memories
-    const tags = new Set<string>()
-    if (results && results.results) {
-      results.results.forEach((memory: any) => {
-        if (memory.metadata && memory.metadata.tags) {
-          memory.metadata.tags.forEach((tag: string) => tags.add(tag))
-        } else if (memory.tags) {
-          // Handle different response formats
-          memory.tags.forEach((tag: string) => tags.add(tag))
-        }
+    try {
+      const response = await fetch(`${this.apiUrl}/v1/memory`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          messages,
+          user_id: userId,
+        }),
       })
+
+      if (!response.ok) {
+        throw new Error(`Failed to add memory: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error adding memory:", error)
+      return null
+    }
+  }
+
+  async search(options: { query: string; user_id: string; limit: number }) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return { results: [] }
     }
 
-    return Array.from(tags)
-  } catch (error) {
-    console.error("Error getting user tags:", error)
-    // Return an empty array instead of throwing an error
-    return []
+    try {
+      const response = await fetch(
+        `${this.apiUrl}/v1/memory/search?q=${encodeURIComponent(options.query)}&user_id=${encodeURIComponent(
+          options.user_id,
+        )}&limit=${options.limit}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error(`Failed to search memories: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error searching memories:", error)
+      return { results: [] }
+    }
+  }
+
+  async storeMemory<T>(key: string, data: T, userId: string): Promise<void> {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/v1/memory/structured`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          key,
+          data,
+          user_id: userId,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to store structured memory: ${response.status} ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error("Error storing structured memory:", error)
+    }
+  }
+
+  async retrieveMemory<T>(key: string, userId: string): Promise<T | null> {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return null
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/v1/memory/structured?key=${key}&user_id=${userId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null // Memory not found
+        }
+        throw new Error(`Failed to retrieve structured memory: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data as T
+    } catch (error) {
+      console.error("Error retrieving structured memory:", error)
+      return null
+    }
+  }
+
+  async clearMemory(userId: string): Promise<void> {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/v1/memory?user_id=${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to clear memory: ${response.status} ${response.statusText}`)
+      }
+    } catch (error) {
+      console.error("Error clearing memory:", error)
+    }
+  }
+
+  isApiAvailable() {
+    return this.isAvailable
+  }
+
+  isStructuredEndpointAvailable() {
+    return this.isAvailable // Assuming same API key enables both endpoints
   }
 }
+
+// Create and export singleton instance
+export const mem0Client = new Memory()
