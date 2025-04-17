@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { IntelligentConflictDialog } from "@/components/intelligent-conflict-dialog"
 import { ConflictPredictionAlert } from "@/components/conflict-prediction-alert"
+import { DiffViewer } from "@/components/diff-viewer"
 import { useToast } from "@/hooks/use-toast"
-import { AlertTriangle, Users } from "lucide-react"
+import { AlertTriangle, Users, History, FileText } from "lucide-react"
 
 interface IntelligentCollaborativeEditorProps {
   documentId: string
@@ -32,8 +34,23 @@ export function IntelligentCollaborativeEditor({
 }: IntelligentCollaborativeEditorProps) {
   const [content, setContent] = useState(initialContent)
   const [lastSavedContent, setLastSavedContent] = useState(initialContent)
+  const [previousContent, setPreviousContent] = useState(initialContent)
   const [isSaving, setIsSaving] = useState(false)
   const [section, setSection] = useState("main")
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyVersions, setHistoryVersions] = useState<
+    {
+      content: string
+      timestamp: number
+      user: string
+    }[]
+  >([
+    {
+      content: initialContent,
+      timestamp: Date.now() - 3600000, // 1 hour ago
+      user: "System",
+    },
+  ])
   const contentRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
@@ -63,6 +80,19 @@ export function IntelligentCollaborativeEditor({
     setIsSaving(true)
 
     try {
+      // Store the previous content for history
+      setPreviousContent(lastSavedContent)
+
+      // Add to history
+      setHistoryVersions((prev) => [
+        ...prev,
+        {
+          content: content,
+          timestamp: Date.now(),
+          user: userName,
+        },
+      ])
+
       // Check for conflicts before saving
       const userEdits = [
         {
@@ -156,6 +186,16 @@ export function IntelligentCollaborativeEditor({
       setContent(resolvedContent)
       setLastSavedContent(resolvedContent)
 
+      // Add to history
+      setHistoryVersions((prev) => [
+        ...prev,
+        {
+          content: resolvedContent,
+          timestamp: Date.now(),
+          user: `${userName} (conflict resolution)`,
+        },
+      ])
+
       toast({
         title: "Conflict Resolved",
         description: "The editing conflict has been successfully resolved.",
@@ -175,6 +215,22 @@ export function IntelligentCollaborativeEditor({
     toast({
       title: "Coordination Request Sent",
       description: "Other users have been notified about your editing intentions.",
+    })
+  }
+
+  // Toggle history view
+  const toggleHistory = () => {
+    setShowHistory(!showHistory)
+  }
+
+  // Select a version from history
+  const selectVersion = (version: { content: string; timestamp: number; user: string }) => {
+    setPreviousContent(content)
+    setContent(version.content)
+
+    toast({
+      title: "Version Selected",
+      description: `Loaded version from ${new Date(version.timestamp).toLocaleString()}`,
     })
   }
 
@@ -213,8 +269,80 @@ export function IntelligentCollaborativeEditor({
             <Users className="h-3 w-3 mr-1" />
             {collaborators.length + 1} Users
           </Badge>
+
+          <Button variant="outline" size="sm" className="flex items-center h-8" onClick={toggleHistory}>
+            <History className="h-4 w-4 mr-1" />
+            History
+          </Button>
         </div>
       </div>
+
+      {/* Show diff between current and last saved content */}
+      {content !== lastSavedContent && content !== initialContent && lastSavedContent !== initialContent && (
+        <Card className="mb-4">
+          <CardHeader className="py-2 px-4">
+            <CardTitle className="text-sm flex items-center">
+              <FileText className="h-4 w-4 mr-1" />
+              Unsaved Changes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <DiffViewer
+              oldText={lastSavedContent}
+              newText={content}
+              oldLabel="Last Saved"
+              newLabel="Current"
+              showStats={true}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* History view */}
+      {showHistory && (
+        <Card className="mb-4">
+          <CardHeader className="py-2 px-4">
+            <CardTitle className="text-sm flex items-center">
+              <History className="h-4 w-4 mr-1" />
+              Document History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              {historyVersions.map((version, index) => (
+                <div key={index} className="border rounded p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center">
+                      <Badge variant="outline" className="mr-2">
+                        Version {index + 1}
+                      </Badge>
+                      <span className="text-sm">{version.user}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-xs text-muted-foreground mr-2">
+                        {new Date(version.timestamp).toLocaleString()}
+                      </span>
+                      <Button variant="outline" size="sm" className="h-7" onClick={() => selectVersion(version)}>
+                        Load
+                      </Button>
+                    </div>
+                  </div>
+
+                  {index > 0 && (
+                    <DiffViewer
+                      oldText={historyVersions[index - 1].content}
+                      newText={version.content}
+                      oldLabel={`Version ${index}`}
+                      newLabel={`Version ${index + 1}`}
+                      showStats={true}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Textarea
         ref={contentRef}

@@ -1,6 +1,7 @@
-"use server"
+import { v4 as uuidv4 } from "uuid"
 
-export interface ConflictInfo {
+// Types for conflict resolution
+export interface Conflict {
   id: string
   documentId: string
   section: string
@@ -28,7 +29,21 @@ export interface ConflictInfo {
 
 export type ResolutionStrategy = "user-a" | "user-b" | "merge" | "custom"
 
-export class ConflictResolutionService {
+export interface ConflictOperation {
+  id: string
+  userId: string
+  userName: string
+  timestamp: number
+  type: "insert" | "delete" | "update"
+  position?: number
+  text?: string
+  content?: string
+  metadata?: Record<string, any>
+}
+
+export type ConflictInfo = Conflict
+
+class ConflictResolutionService {
   detectConflict(
     documentId: string,
     section: string,
@@ -38,24 +53,57 @@ export class ConflictResolutionService {
     userBId: string,
     userBName: string,
     userBContent: string,
-  ): ConflictInfo | null {
-    // Simplified conflict detection logic
-    return null
+  ): Promise<Conflict | null> {
+    // Simplified conflict detection logic - replace with your actual logic
+    if (userAContent !== userBContent) {
+      const conflict: Conflict = {
+        id: uuidv4(),
+        documentId: documentId,
+        section: section,
+        userA: { id: userAId, name: userAName, content: userAContent },
+        userB: { id: userBId, name: userBName, content: userBContent },
+        timestamp: Date.now(),
+        resolved: false,
+        resolution: undefined,
+        conflictPosition: 0,
+        conflictLength: 0,
+      }
+      return Promise.resolve(conflict)
+    }
+    return Promise.resolve(null)
   }
 
-  getSuggestions(conflictId: string): string[] {
-    return []
+  getConflictHistory(documentId: string): Promise<Conflict[]> {
+    // In a real application, you would fetch this from a database
+    return Promise.resolve([])
   }
 
-  async resolveAutomatically(conflictId: string, strategy: ResolutionStrategy): Promise<void> {}
+  suggestResolution(conflict: Conflict, userId: string): Promise<string | null> {
+    // In a real application, you would use an AI model to suggest a resolution
+    // For now, we'll return a simple suggestion
+    return Promise.resolve(
+      `Suggestion for conflict ${conflict.id}: Consider merging the changes or accepting the most recent edit.`,
+    )
+  }
 
-  async resolveManually(conflictId: string, userId?: string, customText?: string): Promise<void> {}
-
-  async getConflictHistory(documentId: string): Promise<ConflictInfo[]> {
-    return []
+  resolveConflict(
+    conflict: Conflict,
+    resolution: ResolutionStrategy,
+    customContent?: string,
+    resolvedBy?: string,
+  ): Promise<Conflict> {
+    const resolvedConflict = {
+      ...conflict,
+      resolved: true,
+      resolution: {
+        chosenContent: resolution === "custom" ? customContent || "" : conflict.userA.content,
+        resolvedBy: resolvedBy || "system",
+        timestamp: Date.now(),
+        strategy: resolution,
+      },
+    }
+    return Promise.resolve(resolvedConflict)
   }
 }
 
 export const conflictResolutionService = new ConflictResolutionService()
-
-export type Conflict = ConflictInfo

@@ -211,5 +211,6 @@ export function useIntelligentConflictResolution(documentId: string, documentTyp
     resolveConflict,
     predictConflicts,
     setConflict,
+    setPrediction,
   }
 }

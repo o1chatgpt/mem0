@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
 import { AlertTriangle, Users, X } from "lucide-react"
 import type { ConflictPrediction } from "@/lib/intelligent-conflict-service"
 
@@ -13,76 +13,76 @@ interface ConflictPredictionAlertProps {
 }
 
 export function ConflictPredictionAlert({ prediction, onDismiss, onCoordinate }: ConflictPredictionAlertProps) {
-  const [isVisible, setIsVisible] = useState(false)
+  if (!prediction) return null
 
-  useEffect(() => {
-    setIsVisible(!!prediction)
-  }, [prediction])
-
-  if (!prediction || !isVisible) return null
-
-  const handleDismiss = () => {
-    setIsVisible(false)
-    onDismiss()
-  }
+  const likelihoodPercent = Math.round(prediction.likelihood * 100)
 
   return (
     <Alert
-      className={`
-        fixed bottom-4 right-4 max-w-md z-50 shadow-lg
-        ${
-          prediction.likelihood > 0.7
-            ? "border-red-400 bg-red-50"
-            : prediction.likelihood > 0.4
-              ? "border-amber-400 bg-amber-50"
-              : "border-blue-400 bg-blue-50"
-        }
-      `}
+      className={`mt-4 ${
+        prediction.suggestedAction === "lock-section"
+          ? "border-red-200 bg-red-50"
+          : prediction.suggestedAction === "suggest-coordination"
+            ? "border-amber-200 bg-amber-50"
+            : "border-blue-200 bg-blue-50"
+      }`}
     >
       <AlertTriangle
-        className={`
-        h-4 w-4
-        ${
-          prediction.likelihood > 0.7
+        className={`h-4 w-4 ${
+          prediction.suggestedAction === "lock-section"
             ? "text-red-500"
-            : prediction.likelihood > 0.4
+            : prediction.suggestedAction === "suggest-coordination"
               ? "text-amber-500"
               : "text-blue-500"
-        }
-      `}
+        }`}
       />
-      <AlertTitle className="flex items-center justify-between">
-        <span>Potential Editing Conflict</span>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleDismiss}>
-          <X className="h-4 w-4" />
-        </Button>
-      </AlertTitle>
-      <AlertDescription>
-        <p className="mb-2">{prediction.reasoning}</p>
+      <div className="flex-1">
+        <AlertTitle className="flex items-center text-sm font-medium">
+          Potential Editing Conflict Detected
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto" onClick={onDismiss}>
+            <X className="h-3 w-3" />
+            <span className="sr-only">Dismiss</span>
+          </Button>
+        </AlertTitle>
+        <AlertDescription className="mt-2">
+          <div className="text-sm mb-2">{prediction.reasoning}</div>
 
-        {prediction.potentialUsers.length > 0 && (
-          <div className="flex items-center text-sm mb-2">
-            <Users className="h-3 w-3 mr-1" />
-            <span>Potential conflicts with {prediction.potentialUsers.length} user(s)</span>
+          <div className="flex items-center mb-2">
+            <span className="text-xs mr-2">Conflict Likelihood:</span>
+            <div className="flex-1 mr-2">
+              <Progress
+                value={likelihoodPercent}
+                className={`h-2 ${
+                  likelihoodPercent > 70 ? "bg-red-100" : likelihoodPercent > 40 ? "bg-amber-100" : "bg-blue-100"
+                }`}
+                indicatorClassName={
+                  likelihoodPercent > 70 ? "bg-red-500" : likelihoodPercent > 40 ? "bg-amber-500" : "bg-blue-500"
+                }
+              />
+            </div>
+            <span className="text-xs font-medium">{likelihoodPercent}%</span>
           </div>
-        )}
 
-        {prediction.suggestedAction !== "none" && (
-          <div className="flex justify-end mt-2">
-            {prediction.suggestedAction === "suggest-coordination" && (
-              <Button size="sm" variant="outline" className="text-xs" onClick={onCoordinate}>
-                Coordinate Editing
-              </Button>
-            )}
+          {prediction.potentialUsers.length > 0 && (
+            <div className="flex items-center text-xs mb-3">
+              <Users className="h-3 w-3 mr-1" />
+              <span>Potential conflicts with: {prediction.potentialUsers.join(", ")}</span>
+            </div>
+          )}
 
-            {prediction.suggestedAction === "lock-section" && (
-              <Button size="sm" variant="outline" className="text-xs" onClick={onCoordinate}>
-                Lock Section
-              </Button>
-            )}
-          </div>
-        )}
-      </AlertDescription>
+          {prediction.suggestedAction === "suggest-coordination" && (
+            <Button size="sm" className="text-xs h-7" onClick={onCoordinate}>
+              Coordinate with Other Editors
+            </Button>
+          )}
+
+          {prediction.suggestedAction === "lock-section" && (
+            <Button size="sm" variant="destructive" className="text-xs h-7">
+              Lock Current Section
+            </Button>
+          )}
+        </AlertDescription>
+      </div>
     </Alert>
   )
 }

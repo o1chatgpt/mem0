@@ -1,5 +1,3 @@
-"use server"
-
 import { Memory } from "./mem0-client"
 import { serverConfig } from "./config"
 import { v4 as uuidv4 } from "uuid"
@@ -83,6 +81,8 @@ export class IntelligentConflictService {
    * Initialize the service for a specific user
    */
   async initialize(userId: string): Promise<void> {
+    "use server"
+
     if (this.isInitialized) return
 
     try {
@@ -110,6 +110,8 @@ export class IntelligentConflictService {
     userEdits: { userId: string; userName: string; content: string; timestamp: number }[],
     context: { before: string; after: string },
   ): Promise<EditingConflict | null> {
+    "use server"
+
     // If there's only one user edit, there's no conflict
     if (userEdits.length <= 1) return null
 
@@ -122,7 +124,7 @@ export class IntelligentConflictService {
       position,
       users: userEdits,
       context,
-      severity: this.calculateConflictSeverity(userEdits, position),
+      severity: await this.calculateConflictSeverity(userEdits, position),
       detected: Date.now(),
     }
 
@@ -140,10 +142,12 @@ export class IntelligentConflictService {
   /**
    * Calculate the severity of a conflict based on the size of changes and overlap
    */
-  private calculateConflictSeverity(
+  async calculateConflictSeverity(
     userEdits: { userId: string; userName: string; content: string; timestamp: number }[],
     position: { start: number; end: number },
-  ): "low" | "medium" | "high" {
+  ): Promise<"low" | "medium" | "high"> {
+    "use server"
+
     // Calculate the total size of the conflicting area
     const conflictSize = position.end - position.start
 
@@ -151,7 +155,7 @@ export class IntelligentConflictService {
     let totalDiff = 0
     for (let i = 0; i < userEdits.length; i++) {
       for (let j = i + 1; j < userEdits.length; j++) {
-        const diff = this.calculateDifference(userEdits[i].content, userEdits[j].content)
+        const diff = await this.calculateDifference(userEdits[i].content, userEdits[j].content)
         totalDiff += diff
       }
     }
@@ -171,7 +175,9 @@ export class IntelligentConflictService {
   /**
    * Calculate a simple difference score between two strings (0-1)
    */
-  private calculateDifference(a: string, b: string): number {
+  async calculateDifference(a: string, b: string): Promise<number> {
+    "use server"
+
     if (a === b) return 0
     if (a.length === 0 || b.length === 0) return 1
 
@@ -191,7 +197,9 @@ export class IntelligentConflictService {
   /**
    * Store a conflict in Mem0 for future reference
    */
-  private async storeConflict(conflict: EditingConflict): Promise<void> {
+  async storeConflict(conflict: EditingConflict): Promise<void> {
+    "use server"
+
     try {
       // Store in Mem0
       await this.memory.storeMemory(`conflict-${conflict.id}`, conflict, serverConfig.systemUserId || "system")
@@ -223,7 +231,9 @@ export class IntelligentConflictService {
   /**
    * Update a user's editing pattern based on new activity
    */
-  private async updateUserPattern(userId: string, documentType: string, conflictId?: string): Promise<void> {
+  async updateUserPattern(userId: string, documentType: string, conflictId?: string): Promise<void> {
+    "use server"
+
     try {
       // Get or create user pattern
       let pattern = this.userPatterns.get(userId)
@@ -281,6 +291,8 @@ export class IntelligentConflictService {
    * Get a conflict by ID
    */
   async getConflict(conflictId: string): Promise<EditingConflict | null> {
+    "use server"
+
     try {
       // Try to get from Mem0
       const conflict = await this.memory.retrieveMemory<EditingConflict>(
@@ -299,6 +311,8 @@ export class IntelligentConflictService {
    * Get all conflicts for a document
    */
   async getDocumentConflicts(documentId: string): Promise<EditingConflict[]> {
+    "use server"
+
     // Return from cache if available
     if (this.documentConflicts.has(documentId)) {
       return this.documentConflicts.get(documentId)!
@@ -355,6 +369,8 @@ export class IntelligentConflictService {
     reasoning: string
     alternativeStrategies: ResolutionStrategy[]
   }> {
+    "use server"
+
     await this.initialize(userId)
 
     try {
@@ -371,7 +387,7 @@ export class IntelligentConflictService {
       // Default response
       const defaultResponse = {
         suggestedStrategy: "smart-merge" as ResolutionStrategy,
-        suggestedContent: this.getMergedContent(conflict),
+        suggestedContent: await this.getMergedContent(conflict),
         confidence: 0.5,
         reasoning: "Based on the conflict analysis, a smart merge of the changes is recommended.",
         alternativeStrategies: ["accept-newest", "manual"] as ResolutionStrategy[],
@@ -415,7 +431,7 @@ export class IntelligentConflictService {
 
         if (suggestedStrategy === "prefer-user") {
           // User typically prefers their own edits
-          suggestedContent = userEdit ? userEdit.content : this.getMergedContent(conflict)
+          suggestedContent = userEdit ? userEdit.content : await this.getMergedContent(conflict)
           confidence = 0.8
           reasoning = `You typically prefer your own changes when collaborating with ${collaboratorEdit?.name}.`
         } else if (suggestedStrategy === "accept-newest") {
@@ -426,7 +442,7 @@ export class IntelligentConflictService {
           reasoning = `You typically accept the most recent changes when collaborating with ${collaboratorEdit?.name}.`
         } else {
           // Default to smart merge
-          suggestedContent = this.getMergedContent(conflict)
+          suggestedContent = await this.getMergedContent(conflict)
           suggestedStrategy = "smart-merge"
           confidence = 0.7
           reasoning = `Based on your collaboration history with ${collaboratorEdit?.name}, a smart merge is recommended.`
@@ -449,18 +465,18 @@ export class IntelligentConflictService {
             reasoning = "Based on your history, you typically prefer the original changes."
             break
           case "prefer-user":
-            suggestedContent = userEdit ? userEdit.content : this.getMergedContent(conflict)
+            suggestedContent = userEdit ? userEdit.content : await this.getMergedContent(conflict)
             confidence = 0.85
             reasoning = "Based on your history, you typically prefer your own changes."
             break
           case "merge-changes":
           case "smart-merge":
-            suggestedContent = this.getMergedContent(conflict)
+            suggestedContent = await this.getMergedContent(conflict)
             confidence = 0.75
             reasoning = "Based on your history, you typically prefer to merge changes."
             break
           default:
-            suggestedContent = this.getMergedContent(conflict)
+            suggestedContent = await this.getMergedContent(conflict)
             confidence = 0.6
             reasoning = "Based on your history, a smart merge is recommended."
         }
@@ -507,7 +523,9 @@ export class IntelligentConflictService {
   /**
    * Get a merged version of the conflicting content
    */
-  private getMergedContent(conflict: EditingConflict): string {
+  async getMergedContent(conflict: EditingConflict): Promise<string> {
+    "use server"
+
     // Simple merge strategy - could be improved with diff algorithms
     if (conflict.users.length === 0) return ""
 
@@ -534,6 +552,8 @@ export class IntelligentConflictService {
       reasoning?: string
     },
   ): Promise<EditingConflict | null> {
+    "use server"
+
     try {
       // Get the conflict
       const conflict = await this.getConflict(conflictId)
@@ -591,11 +611,13 @@ export class IntelligentConflictService {
   /**
    * Update a user's resolution preferences based on their choice
    */
-  private async updateUserResolutionPreference(
+  async updateUserResolutionPreference(
     userId: string,
     strategy: ResolutionStrategy,
     conflict: EditingConflict,
   ): Promise<void> {
+    "use server"
+
     await this.initialize(userId)
 
     try {
@@ -670,6 +692,8 @@ export class IntelligentConflictService {
    * Predict potential conflicts based on current editing patterns
    */
   async predictConflicts(documentId: string, userId: string, section: string): Promise<ConflictPrediction | null> {
+    "use server"
+
     await this.initialize(userId)
 
     try {
@@ -747,6 +771,8 @@ export class IntelligentConflictService {
    * Learn from past conflicts to improve conflict resolution
    */
   async learnFromPastConflicts(userId: string): Promise<void> {
+    "use server"
+
     await this.initialize(userId)
 
     try {

@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
-import { AlertTriangle, Check, Clock, Edit, Sparkles, Wand2 } from "lucide-react"
+import { AlertTriangle, Check, Clock, Edit, Sparkles, Wand2, FileText, Eye } from "lucide-react"
 import type { EditingConflict, ResolutionStrategy } from "@/lib/intelligent-conflict-service"
+import { DiffViewer } from "@/components/diff-viewer"
 
 interface IntelligentConflictDialogProps {
   conflict: EditingConflict | null
@@ -36,6 +37,7 @@ export function IntelligentConflictDialog({
   const [selectedStrategy, setSelectedStrategy] = useState<ResolutionStrategy>("smart-merge")
   const [customContent, setCustomContent] = useState("")
   const [activeTab, setActiveTab] = useState("suggested")
+  const [diffView, setDiffView] = useState<"changes" | "full">("changes")
 
   useEffect(() => {
     setIsOpen(!!conflict)
@@ -92,9 +94,14 @@ export function IntelligentConflictDialog({
 
   if (!conflict) return null
 
+  // Find the two most recent edits for diff comparison
+  const sortedUsers = [...conflict.users].sort((a, b) => b.timestamp - a.timestamp)
+  const newestEdit = sortedUsers[0]
+  const secondNewestEdit = sortedUsers[1] || sortedUsers[0]
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <AlertTriangle className="h-5 w-5 text-amber-500 mr-2" />
@@ -155,6 +162,41 @@ export function IntelligentConflictDialog({
               </div>
             </div>
           )}
+
+          {/* Visual Diff Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">Visual Diff Comparison:</h3>
+              <div className="flex items-center">
+                <Button
+                  variant={diffView === "changes" ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs mr-2"
+                  onClick={() => setDiffView("changes")}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  Changes Only
+                </Button>
+                <Button
+                  variant={diffView === "full" ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setDiffView("full")}
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  Full Document
+                </Button>
+              </div>
+            </div>
+
+            <DiffViewer
+              oldText={secondNewestEdit.content}
+              newText={newestEdit.content}
+              oldLabel={`${secondNewestEdit.name}'s version`}
+              newLabel={`${newestEdit.name}'s version`}
+              className="mb-4"
+            />
+          </div>
 
           <div className="mb-4">
             <h3 className="text-sm font-medium mb-2">Conflicting Changes:</h3>
