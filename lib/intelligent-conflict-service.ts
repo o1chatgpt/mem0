@@ -81,8 +81,6 @@ export class IntelligentConflictService {
    * Initialize the service for a specific user
    */
   async initialize(userId: string): Promise<void> {
-    "use server"
-
     if (this.isInitialized) return
 
     try {
@@ -110,8 +108,6 @@ export class IntelligentConflictService {
     userEdits: { userId: string; userName: string; content: string; timestamp: number }[],
     context: { before: string; after: string },
   ): Promise<EditingConflict | null> {
-    "use server"
-
     // If there's only one user edit, there's no conflict
     if (userEdits.length <= 1) return null
 
@@ -146,8 +142,6 @@ export class IntelligentConflictService {
     userEdits: { userId: string; userName: string; content: string; timestamp: number }[],
     position: { start: number; end: number },
   ): Promise<"low" | "medium" | "high"> {
-    "use server"
-
     // Calculate the total size of the conflicting area
     const conflictSize = position.end - position.start
 
@@ -176,8 +170,6 @@ export class IntelligentConflictService {
    * Calculate a simple difference score between two strings (0-1)
    */
   async calculateDifference(a: string, b: string): Promise<number> {
-    "use server"
-
     if (a === b) return 0
     if (a.length === 0 || b.length === 0) return 1
 
@@ -198,8 +190,6 @@ export class IntelligentConflictService {
    * Store a conflict in Mem0 for future reference
    */
   async storeConflict(conflict: EditingConflict): Promise<void> {
-    "use server"
-
     try {
       // Store in Mem0
       await this.memory.storeMemory(`conflict-${conflict.id}`, conflict, serverConfig.systemUserId || "system")
@@ -232,8 +222,6 @@ export class IntelligentConflictService {
    * Update a user's editing pattern based on new activity
    */
   async updateUserPattern(userId: string, documentType: string, conflictId?: string): Promise<void> {
-    "use server"
-
     try {
       // Get or create user pattern
       let pattern = this.userPatterns.get(userId)
@@ -291,8 +279,6 @@ export class IntelligentConflictService {
    * Get a conflict by ID
    */
   async getConflict(conflictId: string): Promise<EditingConflict | null> {
-    "use server"
-
     try {
       // Try to get from Mem0
       const conflict = await this.memory.retrieveMemory<EditingConflict>(
@@ -311,8 +297,6 @@ export class IntelligentConflictService {
    * Get all conflicts for a document
    */
   async getDocumentConflicts(documentId: string): Promise<EditingConflict[]> {
-    "use server"
-
     // Return from cache if available
     if (this.documentConflicts.has(documentId)) {
       return this.documentConflicts.get(documentId)!
@@ -369,8 +353,6 @@ export class IntelligentConflictService {
     reasoning: string
     alternativeStrategies: ResolutionStrategy[]
   }> {
-    "use server"
-
     await this.initialize(userId)
 
     try {
@@ -524,8 +506,6 @@ export class IntelligentConflictService {
    * Get a merged version of the conflicting content
    */
   async getMergedContent(conflict: EditingConflict): Promise<string> {
-    "use server"
-
     // Simple merge strategy - could be improved with diff algorithms
     if (conflict.users.length === 0) return ""
 
@@ -545,15 +525,10 @@ export class IntelligentConflictService {
    */
   async resolveConflict(
     conflictId: string,
-    resolution: {
-      strategy: ResolutionStrategy
-      content: string
-      resolvedBy: string
-      reasoning?: string
-    },
+    strategy: ResolutionStrategy,
+    content: string,
+    reasoning?: string,
   ): Promise<EditingConflict | null> {
-    "use server"
-
     try {
       // Get the conflict
       const conflict = await this.getConflict(conflictId)
@@ -566,11 +541,11 @@ export class IntelligentConflictService {
       const resolvedConflict: EditingConflict = {
         ...conflict,
         resolved: {
-          content: resolution.content,
-          strategy: resolution.strategy,
-          resolvedBy: resolution.resolvedBy,
+          content: content,
+          strategy: strategy,
+          resolvedBy: serverConfig.systemUserId || "system",
           timestamp: Date.now(),
-          reasoning: resolution.reasoning,
+          reasoning: reasoning,
         },
       }
 
@@ -586,21 +561,6 @@ export class IntelligentConflictService {
         }
       }
 
-      // Update user patterns
-      await this.updateUserResolutionPreference(resolution.resolvedBy, resolution.strategy, conflict)
-
-      // Store as memory for learning
-      await this.memory.add(
-        [
-          { role: "system", content: "Conflict resolution" },
-          {
-            role: "user",
-            content: `Conflict ${conflictId} in document ${conflict.documentId} resolved by ${resolution.resolvedBy} using strategy ${resolution.strategy}. ${resolution.reasoning || ""}`,
-          },
-        ],
-        serverConfig.systemUserId || "system",
-      )
-
       return resolvedConflict
     } catch (error) {
       console.error("Error resolving conflict:", error)
@@ -609,246 +569,15 @@ export class IntelligentConflictService {
   }
 
   /**
-   * Update a user's resolution preferences based on their choice
-   */
-  async updateUserResolutionPreference(
-    userId: string,
-    strategy: ResolutionStrategy,
-    conflict: EditingConflict,
-  ): Promise<void> {
-    "use server"
-
-    await this.initialize(userId)
-
-    try {
-      // Get or create user pattern
-      let pattern = this.userPatterns.get(userId)
-
-      if (!pattern) {
-        pattern = {
-          userId,
-          documentTypes: {},
-          editingTimes: [],
-          editingDurations: [],
-          conflictFrequency: 0,
-          preferredResolutions: {
-            "accept-newest": 0,
-            "accept-oldest": 0,
-            "prefer-user": 0,
-            "merge-changes": 0,
-            "smart-merge": 0,
-            manual: 0,
-          },
-          collaborators: {},
-          lastUpdated: Date.now(),
-        }
-      }
-
-      // Update preferred resolution count
-      pattern.preferredResolutions[strategy] = (pattern.preferredResolutions[strategy] || 0) + 1
-
-      // Update collaborator information
-      for (const user of conflict.users) {
-        if (user.id !== userId) {
-          if (!pattern.collaborators[user.id]) {
-            pattern.collaborators[user.id] = {
-              userId: user.id,
-              frequency: 0,
-              conflicts: 0,
-              preferredResolution: "smart-merge",
-            }
-          }
-
-          const collaborator = pattern.collaborators[user.id]
-          collaborator.frequency += 1
-          collaborator.conflicts += 1
-
-          // Update preferred resolution for this collaborator
-          // Use a weighted average to gradually shift the preference
-          const currentWeight = 0.7
-          const newWeight = 0.3
-
-          // Only update if we have enough data
-          if (collaborator.conflicts >= 3) {
-            collaborator.preferredResolution = strategy
-          }
-        }
-      }
-
-      // Update last updated timestamp
-      pattern.lastUpdated = Date.now()
-
-      // Save updated pattern
-      this.userPatterns.set(userId, pattern)
-
-      // Store in Mem0
-      await this.memory.storeMemory(`editing-pattern-${userId}`, pattern, userId)
-    } catch (error) {
-      console.error("Error updating user resolution preference:", error)
-    }
-  }
-
-  /**
    * Predict potential conflicts based on current editing patterns
    */
-  async predictConflicts(documentId: string, userId: string, section: string): Promise<ConflictPrediction | null> {
-    "use server"
-
-    await this.initialize(userId)
-
+  async predictConflicts(section: string): Promise<ConflictPrediction | null> {
     try {
-      // Get active users for this document (this would come from your real-time system)
-      // For this example, we'll simulate it
-      const activeUsers = ["user1", "user2", "user3"].filter((id) => id !== userId)
-
-      if (activeUsers.length === 0) {
-        return null // No other users, no conflict possible
-      }
-
-      // Get user pattern
-      const userPattern = this.userPatterns.get(userId)
-
-      if (!userPattern) {
-        return null // Not enough data to make a prediction
-      }
-
-      // Check if user has high conflict frequency
-      const hasHighConflictRate = userPattern.conflictFrequency > 0.3
-
-      // Check if user has conflicts with any of the active users
-      const conflictingCollaborators = activeUsers.filter((id) => {
-        const collaborator = userPattern.collaborators[id]
-        return collaborator && collaborator.conflicts > 3
-      })
-
-      // Calculate likelihood based on factors
-      let likelihood = 0
-
-      if (hasHighConflictRate) {
-        likelihood += 0.3
-      }
-
-      if (conflictingCollaborators.length > 0) {
-        likelihood += 0.4 * (conflictingCollaborators.length / activeUsers.length)
-      }
-
-      // Cap likelihood at 0.9
-      likelihood = Math.min(likelihood, 0.9)
-
-      // Only return a prediction if likelihood is significant
-      if (likelihood < 0.2) {
-        return null
-      }
-
-      // Determine suggested action based on likelihood
-      let suggestedAction: "notify" | "lock-section" | "suggest-coordination" | "none"
-      let reasoning: string
-
-      if (likelihood > 0.7) {
-        suggestedAction = "lock-section"
-        reasoning = "High probability of conflict based on editing history with these users."
-      } else if (likelihood > 0.4) {
-        suggestedAction = "suggest-coordination"
-        reasoning = "Moderate probability of conflict. Consider coordinating with other editors."
-      } else {
-        suggestedAction = "notify"
-        reasoning = "Slight chance of conflict. Be aware of other editors in this section."
-      }
-
-      return {
-        likelihood,
-        potentialUsers: conflictingCollaborators,
-        suggestedAction,
-        reasoning,
-      }
+      // For now, return null
+      return null
     } catch (error) {
       console.error("Error predicting conflicts:", error)
       return null
-    }
-  }
-
-  /**
-   * Learn from past conflicts to improve conflict resolution
-   */
-  async learnFromPastConflicts(userId: string): Promise<void> {
-    "use server"
-
-    await this.initialize(userId)
-
-    try {
-      // Search for past conflict resolutions
-      const results = await this.memory.search({
-        query: "conflict resolution",
-        user_id: serverConfig.systemUserId || "system",
-        limit: 100,
-      })
-
-      if (!results || !results.results || results.results.length === 0) {
-        return
-      }
-
-      // Analyze resolution patterns
-      const strategies: Record<string, number> = {}
-      const userPreferences: Record<string, Record<string, number>> = {}
-
-      for (const result of results.results) {
-        try {
-          // Extract strategy from the memory
-          const strategyMatch = result.memory.match(/using strategy ([a-z-]+)/)
-          if (strategyMatch) {
-            const strategy = strategyMatch[1]
-            strategies[strategy] = (strategies[strategy] || 0) + 1
-
-            // Extract user from the memory
-            const userMatch = result.memory.match(/resolved by ([a-zA-Z0-9-]+)/)
-            if (userMatch) {
-              const user = userMatch[1]
-
-              if (!userPreferences[user]) {
-                userPreferences[user] = {}
-              }
-
-              userPreferences[user][strategy] = (userPreferences[user][strategy] || 0) + 1
-            }
-          }
-        } catch (e) {
-          console.error("Error parsing conflict resolution from search result:", e)
-        }
-      }
-
-      // Update user patterns based on learned preferences
-      for (const [user, prefs] of Object.entries(userPreferences)) {
-        // Get or create user pattern
-        const pattern = this.userPatterns.get(user)
-
-        if (!pattern) {
-          continue // Skip users we don't have patterns for
-        }
-
-        // Find the most preferred strategy
-        let maxCount = 0
-        let preferredStrategy: ResolutionStrategy | null = null
-
-        for (const [strategy, count] of Object.entries(prefs)) {
-          if (count > maxCount) {
-            maxCount = count
-            preferredStrategy = strategy as ResolutionStrategy
-          }
-        }
-
-        if (preferredStrategy && maxCount > 5) {
-          // Update the user's preferred resolutions
-          pattern.preferredResolutions[preferredStrategy] += 1
-
-          // Save updated pattern
-          this.userPatterns.set(user, pattern)
-
-          // Store in Mem0
-          await this.memory.storeMemory(`editing-pattern-${user}`, pattern, user)
-        }
-      }
-    } catch (error) {
-      console.error("Error learning from past conflicts:", error)
     }
   }
 }

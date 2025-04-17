@@ -13,8 +13,6 @@ export class Memory {
   }
 
   async add(messages: { role: string; content: string }[], userId: string) {
-    "use server"
-
     if (!this.isAvailable) {
       console.warn("Mem0 API is not available - API key is missing")
       return null
@@ -45,8 +43,6 @@ export class Memory {
   }
 
   async search(options: { query: string; user_id: string; limit: number }) {
-    "use server"
-
     if (!this.isAvailable) {
       console.warn("Mem0 API is not available - API key is missing")
       return { results: [] }
@@ -77,8 +73,6 @@ export class Memory {
   }
 
   async storeMemory<T>(key: string, data: T, userId: string): Promise<void> {
-    "use server"
-
     if (!this.isAvailable) {
       console.warn("Mem0 API is not available - API key is missing")
       return
@@ -107,8 +101,6 @@ export class Memory {
   }
 
   async retrieveMemory<T>(key: string, userId: string): Promise<T | null> {
-    "use server"
-
     if (!this.isAvailable) {
       console.warn("Mem0 API is not available - API key is missing")
       return null
@@ -138,8 +130,6 @@ export class Memory {
   }
 
   async clearMemory(userId: string): Promise<void> {
-    "use server"
-
     if (!this.isAvailable) {
       console.warn("Mem0 API is not available - API key is missing")
       return
