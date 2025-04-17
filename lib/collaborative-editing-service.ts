@@ -1,4 +1,5 @@
-import { supabase } from "./supabase-client"
+import { createClient } from "@supabase/supabase-js"
+import { config } from "./config"
 import { v4 as uuidv4 } from "uuid"
 
 // Types for collaborative editing
@@ -23,17 +24,9 @@ export interface CollaborationOperation {
   sessionId: string
   userId: string
   timestamp: string
-  type: "insert" | "delete" | "cursor" | "selection"
+  type: "insert" | "delete"
   position?: number
   text?: string
-  cursor?: {
-    line: number
-    ch: number
-  }
-  selection?: {
-    from: { line: number; ch: number }
-    to: { line: number; ch: number }
-  }
 }
 
 // Available user colors for collaboration
@@ -49,6 +42,9 @@ const USER_COLORS = [
   "#607D8B", // Blue Grey
   "#E91E63", // Pink
 ]
+
+// Create a Supabase client for client-side operations
+const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey)
 
 class CollaborativeEditingService {
   private sessions: Map<string, CollaborationSession> = new Map()
@@ -263,8 +259,6 @@ class CollaborativeEditingService {
           operation_data: {
             position: fullOperation.position,
             text: fullOperation.text,
-            cursor: fullOperation.cursor,
-            selection: fullOperation.selection,
           },
         },
       ])
@@ -334,3 +328,6 @@ class CollaborativeEditingService {
 
 // Create and export singleton instance
 export const collaborativeEditingService = new CollaborativeEditingService()
+
+// Also export the class for extensibility
+export default CollaborativeEditingService

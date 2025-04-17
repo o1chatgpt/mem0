@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS collaboration_operations (
   operation_type TEXT NOT NULL,
   operation_data JSONB NOT NULL,
   
-  -- Add constraint for valid operation types
-  CONSTRAINT valid_operation_type CHECK (operation_type IN ('insert', 'delete', 'cursor', 'selection'))
+  -- Add index for faster queries
+  CONSTRAINT valid_operation_type CHECK (operation_type IN ('insert', 'delete'))
 );
 
--- Create index for faster queries
+-- Add indexes
 CREATE INDEX IF NOT EXISTS idx_collaboration_sessions_file_id ON collaboration_sessions(file_id);
 CREATE INDEX IF NOT EXISTS idx_collaboration_sessions_is_active ON collaboration_sessions(is_active);
 CREATE INDEX IF NOT EXISTS idx_collaboration_operations_session_id ON collaboration_operations(session_id);

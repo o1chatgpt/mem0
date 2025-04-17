@@ -27,167 +27,273 @@ const supabase = createClient(serverConfig.supabaseUrl, serverConfig.supabaseSer
 
 // Service class for Supabase operations
 class SupabaseService {
-  async getUser(userId: string) {
-    const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+  private initialized = false
 
-    if (error) throw error
-    return data
+  async initialize() {
+    if (this.initialized) return true
+
+    try {
+      // Check if we can connect to Supabase
+      const { data, error } = await supabase.from("users").select("count").limit(1)
+
+      if (error) {
+        console.error("Error initializing Supabase service:", error)
+        return false
+      }
+
+      this.initialized = true
+      return true
+    } catch (error) {
+      console.error("Error initializing Supabase service:", error)
+      return false
+    }
+  }
+
+  async getUser(userId: string) {
+    try {
+      const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error getting user:", error)
+      return null
+    }
   }
 
   async createUser(userData: any) {
-    const { data, error } = await supabase.from("users").insert(userData).select().single()
+    try {
+      const { data, error } = await supabase.from("users").insert(userData).select().single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error creating user:", error)
+      return null
+    }
   }
 
   async updateUser(userId: string, userData: any) {
-    const { data, error } = await supabase.from("users").update(userData).eq("id", userId).select().single()
+    try {
+      const { data, error } = await supabase.from("users").update(userData).eq("id", userId).select().single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error updating user:", error)
+      return null
+    }
   }
 
   async getFiles(userId: string) {
-    const { data, error } = await supabase.from("files").select("*").eq("user_id", userId)
+    try {
+      const { data, error } = await supabase.from("files").select("*").eq("user_id", userId)
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error getting files:", error)
+      return []
+    }
   }
 
   async getFile(fileId: string) {
-    const { data, error } = await supabase.from("files").select("*").eq("id", fileId).single()
+    try {
+      const { data, error } = await supabase.from("files").select("*").eq("id", fileId).single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error getting file:", error)
+      return null
+    }
   }
 
   async createFile(fileData: any) {
-    const { data, error } = await supabase.from("files").insert(fileData).select().single()
+    try {
+      const { data, error } = await supabase.from("files").insert(fileData).select().single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error creating file:", error)
+      return null
+    }
   }
 
   async updateFile(fileId: string, fileData: any) {
-    const { data, error } = await supabase.from("files").update(fileData).eq("id", fileId).select().single()
+    try {
+      const { data, error } = await supabase.from("files").update(fileData).eq("id", fileId).select().single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error updating file:", error)
+      return null
+    }
   }
 
   async deleteFile(fileId: string) {
-    const { error } = await supabase.from("files").delete().eq("id", fileId)
+    try {
+      const { error } = await supabase.from("files").delete().eq("id", fileId)
 
-    if (error) throw error
-    return true
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error("Error deleting file:", error)
+      return false
+    }
   }
 
   async getCollaborators(fileId: string) {
-    const { data, error } = await supabase
-      .from("collaborators")
-      .select("*, users(id, email, name)")
-      .eq("file_id", fileId)
+    try {
+      const { data, error } = await supabase
+        .from("collaborators")
+        .select("*, users(id, email, name)")
+        .eq("file_id", fileId)
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error getting collaborators:", error)
+      return []
+    }
   }
 
   async addCollaborator(fileId: string, userId: string, permission: string) {
-    const { data, error } = await supabase
-      .from("collaborators")
-      .insert({
-        file_id: fileId,
-        user_id: userId,
-        permission,
-      })
-      .select()
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from("collaborators")
+        .insert({
+          file_id: fileId,
+          user_id: userId,
+          permission,
+        })
+        .select()
+        .single()
 
-    if (error) throw error
-    return data
+      if (error) throw error
+      return data
+    } catch (error) {
+      console.error("Error adding collaborator:", error)
+      return null
+    }
   }
 
   async removeCollaborator(fileId: string, userId: string) {
-    const { error } = await supabase.from("collaborators").delete().eq("file_id", fileId).eq("user_id", userId)
+    try {
+      const { error } = await supabase.from("collaborators").delete().eq("file_id", fileId).eq("user_id", userId)
 
-    if (error) throw error
-    return true
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error("Error removing collaborator:", error)
+      return false
+    }
   }
 
   async getAIFamilyMembers(): Promise<AIFamilyMember[]> {
-    const { data, error } = await supabase.from("ai_family_members").select("*")
+    try {
+      const { data, error } = await supabase.from("ai_family_members").select("*")
 
-    if (error) throw error
-    return data as AIFamilyMember[]
+      if (error) throw error
+      return data as AIFamilyMember[]
+    } catch (error) {
+      console.error("Error getting AI family members:", error)
+      return []
+    }
   }
 
   async getAIFamilyMember(memberId: string): Promise<AIFamilyMember | null> {
-    const { data, error } = await supabase.from("ai_family_members").select("*").eq("id", memberId).single()
+    try {
+      const { data, error } = await supabase.from("ai_family_members").select("*").eq("id", memberId).single()
 
-    if (error) throw error
-    return data as AIFamilyMember
+      if (error) throw error
+      return data as AIFamilyMember
+    } catch (error) {
+      console.error("Error getting AI family member:", error)
+      return null
+    }
   }
 
   async createAIFamilyMember(
     member: Omit<AIFamilyMember, "id" | "created_at" | "updated_at" | "created_by">,
-  ): Promise<AIFamilyMember> {
-    const { data, error } = await supabase
-      .from("ai_family_members")
-      .insert([{ ...member, created_by: supabase.auth.currentUser?.id }])
-      .select()
-      .single()
+    userId: string,
+  ): Promise<AIFamilyMember | null> {
+    try {
+      const { data, error } = await supabase
+        .from("ai_family_members")
+        .insert([{ ...member, created_by: userId }])
+        .select()
+        .single()
 
-    if (error) throw error
-    return data as AIFamilyMember
+      if (error) throw error
+      return data as AIFamilyMember
+    } catch (error) {
+      console.error("Error creating AI family member:", error)
+      return null
+    }
   }
 
-  async updateAIFamilyMember(memberId: string, updates: Partial<AIFamilyMember>): Promise<AIFamilyMember> {
-    const { data, error } = await supabase
-      .from("ai_family_members")
-      .update(updates)
-      .eq("id", memberId)
-      .select()
-      .single()
+  async updateAIFamilyMember(memberId: string, updates: Partial<AIFamilyMember>): Promise<AIFamilyMember | null> {
+    try {
+      const { data, error } = await supabase
+        .from("ai_family_members")
+        .update(updates)
+        .eq("id", memberId)
+        .select()
+        .single()
 
-    if (error) throw error
-    return data as AIFamilyMember
+      if (error) throw error
+      return data as AIFamilyMember
+    } catch (error) {
+      console.error("Error updating AI family member:", error)
+      return null
+    }
   }
 
   async deleteAIFamilyMember(memberId: string): Promise<boolean> {
-    const { error } = await supabase.from("ai_family_members").delete().eq("id", memberId)
+    try {
+      const { error } = await supabase.from("ai_family_members").delete().eq("id", memberId)
 
-    if (error) throw error
-    return true
+      if (error) throw error
+      return true
+    } catch (error) {
+      console.error("Error deleting AI family member:", error)
+      return false
+    }
   }
 
   async getAIMemories(memberId: string): Promise<AIMemory[]> {
-    const { data, error } = await supabase.from("ai_memories").select("*").eq("ai_family_member_id", memberId)
+    try {
+      const { data, error } = await supabase.from("ai_memories").select("*").eq("ai_family_member_id", memberId)
 
-    if (error) throw error
-    return data as AIMemory[]
+      if (error) throw error
+      return data as AIMemory[]
+    } catch (error) {
+      console.error("Error getting AI memories:", error)
+      return []
+    }
   }
 
-  async createAIMemory(memory: Omit<AIMemory, "id" | "created_at">): Promise<AIMemory> {
-    const { data, error } = await supabase.from("ai_memories").insert([memory]).select().single()
+  async createAIMemory(memory: Omit<AIMemory, "id" | "created_at">): Promise<AIMemory | null> {
+    try {
+      const { data, error } = await supabase.from("ai_memories").insert([memory]).select().single()
 
-    if (error) throw error
-    return data as AIMemory
+      if (error) throw error
+      return data as AIMemory
+    } catch (error) {
+      console.error("Error creating AI memory:", error)
+      return null
+    }
   }
 
   async searchAIMemories(query: string, memberId?: string, limit = 5): Promise<AIMemory[]> {
     try {
-      const { data, error } = await supabase.rpc("search_ai_memories", {
-        query_embedding: [], // Replace with actual embedding generation
-        match_threshold: 0.7,
-        match_count: limit,
-        filter_ai_family_member_id: memberId || null,
-      })
+      // This is a simplified implementation - in a real app, you'd use vector search
+      const { data, error } = await supabase.from("ai_memories").select("*").ilike("content", `%${query}%`).limit(limit)
 
-      if (error) {
-        throw error
-      }
-
+      if (error) throw error
       return data as AIMemory[]
     } catch (error) {
       console.error("Error searching AI memories:", error)

@@ -209,28 +209,6 @@ export function useCollaborativeEditing(fileId?: string) {
     [sendOperation],
   )
 
-  // Send a cursor position update
-  const sendCursorPosition = useCallback(
-    (line: number, ch: number) => {
-      sendOperation({
-        type: "cursor",
-        cursor: { line, ch },
-      })
-    },
-    [sendOperation],
-  )
-
-  // Send a selection update
-  const sendSelection = useCallback(
-    (from: { line: number; ch: number }, to: { line: number; ch: number }) => {
-      sendOperation({
-        type: "selection",
-        selection: { from, to },
-      })
-    },
-    [sendOperation],
-  )
-
   return {
     isInitialized,
     isConnected,
@@ -243,7 +221,5 @@ export function useCollaborativeEditing(fileId?: string) {
     leaveSession,
     sendInsert,
     sendDelete,
-    sendCursorPosition,
-    sendSelection,
   }
 }

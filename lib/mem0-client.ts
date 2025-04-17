@@ -4,13 +4,20 @@ import { serverConfig } from "./config"
 class Mem0Client {
   private apiKey: string
   private apiUrl: string
+  private isAvailable: boolean
 
-  constructor(apiKey: string, apiUrl: string) {
-    this.apiKey = apiKey
-    this.apiUrl = apiUrl
+  constructor() {
+    this.apiKey = serverConfig.mem0ApiKey || ""
+    this.apiUrl = serverConfig.mem0ApiUrl || "https://api.mem0.ai"
+    this.isAvailable = !!this.apiKey
   }
 
   async createMemory(content: string, metadata: any = {}) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return null
+    }
+
     try {
       const response = await fetch(`${this.apiUrl}/memories`, {
         method: "POST",
@@ -31,11 +38,16 @@ class Mem0Client {
       return await response.json()
     } catch (error) {
       console.error("Error creating memory:", error)
-      throw error
+      return null
     }
   }
 
   async getMemory(id: string) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return null
+    }
+
     try {
       const response = await fetch(`${this.apiUrl}/memories/${id}`, {
         method: "GET",
@@ -51,11 +63,16 @@ class Mem0Client {
       return await response.json()
     } catch (error) {
       console.error("Error getting memory:", error)
-      throw error
+      return null
     }
   }
 
   async searchMemories(query: string, limit = 10) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return { results: [] }
+    }
+
     try {
       const response = await fetch(`${this.apiUrl}/memories/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
         method: "GET",
@@ -71,11 +88,16 @@ class Mem0Client {
       return await response.json()
     } catch (error) {
       console.error("Error searching memories:", error)
-      throw error
+      return { results: [] }
     }
   }
 
   async updateMemory(id: string, content: string, metadata: any = {}) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return null
+    }
+
     try {
       const response = await fetch(`${this.apiUrl}/memories/${id}`, {
         method: "PUT",
@@ -96,11 +118,16 @@ class Mem0Client {
       return await response.json()
     } catch (error) {
       console.error("Error updating memory:", error)
-      throw error
+      return null
     }
   }
 
   async deleteMemory(id: string) {
+    if (!this.isAvailable) {
+      console.warn("Mem0 API is not available - API key is missing")
+      return false
+    }
+
     try {
       const response = await fetch(`${this.apiUrl}/memories/${id}`, {
         method: "DELETE",
@@ -116,13 +143,17 @@ class Mem0Client {
       return true
     } catch (error) {
       console.error("Error deleting memory:", error)
-      throw error
+      return false
     }
+  }
+
+  isApiAvailable() {
+    return this.isAvailable
   }
 }
 
 // Create and export an instance of the client
-export const mem0Client = new Mem0Client(serverConfig.mem0ApiKey, serverConfig.mem0ApiUrl)
+export const mem0Client = new Mem0Client()
 
 // Also export the class for extensibility
 export default Mem0Client

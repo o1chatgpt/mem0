@@ -12,7 +12,7 @@ export const config = {
 // Server-only configuration (contains sensitive data)
 export const serverConfig = {
   // Supabase
-  supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseJwtSecret: process.env.SUPABASE_JWT_SECRET || "",
 
