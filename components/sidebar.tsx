@@ -1,268 +1,211 @@
 "use client"
 
-import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import {
-  ChevronDown,
-  ChevronRight,
-  Home,
-  Users,
-  Mic,
-  PenToolIcon as Tool,
-  Settings,
-  FileText,
-  BarChart,
-  Presentation,
-  Upload,
-  BookOpen,
-  ShoppingCart,
-  Briefcase,
-  GraduationCap,
-} from "lucide-react"
+import { Clock, Star, Settings, HelpCircle, Search, Trash2, Brain } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AI_FAMILY_MEMBERS } from "@/lib/data/ai-family"
+import { useAppContext } from "@/lib/app-context"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { useState } from "react"
 
-interface SidebarProps {
-  className?: string
-}
+export function Sidebar() {
+  // Destructure with default empty arrays to prevent undefined errors
+  const {
+    recentFiles = [],
+    frequentFiles = [],
+    suggestedFiles = [],
+    favoriteFiles = [],
+    recentSearches = [],
+    setSelectedFileId,
+    setSearchQuery,
+    memoryStore,
+  } = useAppContext()
 
-export function Sidebar({ className }: SidebarProps) {
-  const pathname = usePathname()
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    aiFamily: false,
-    tools: false,
-    content: false,
-  })
+  const [isMemoryDialogOpen, setIsMemoryDialogOpen] = useState(false)
 
-  const toggleSection = (section: string) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
+  const handleClearMemory = async () => {
+    try {
+      if (memoryStore) {
+        await memoryStore.clearMemory?.() // Optional chaining in case method doesn't exist
+      }
+      setIsMemoryDialogOpen(false)
+      window.location.reload() // Reload to reset all state
+    } catch (error) {
+      console.error("Error clearing memory:", error)
+    }
   }
 
-  const isActive = (path: string) => {
-    return pathname === path || pathname.startsWith(`${path}/`)
-  }
+  // Ensure all arrays are defined before accessing their properties
+  const safeRecentFiles = recentFiles || []
+  const safeFrequentFiles = frequentFiles || []
+  const safeSuggestedFiles = suggestedFiles || []
+  const safeFavoriteFiles = favoriteFiles || []
+  const safeRecentSearches = recentSearches || []
 
   return (
-    <div className={cn("flex h-screen w-64 flex-col border-r bg-background", className)}>
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/dashboard" className="flex items-center font-semibold">
-          <span className="text-xl">AI Family Manager</span>
-        </Link>
+    <div className="w-64 border-r bg-muted/10 p-4 flex flex-col h-full">
+      <h2 className="font-semibold mb-4 flex items-center">
+        <Brain className="h-5 w-5 mr-2 text-primary" />
+        Smart File Manager
+      </h2>
+
+      <div className="mb-6">
+        <h3 className="text-sm font-medium flex items-center mb-2">
+          <Star className="h-4 w-4 mr-2 text-yellow-400" />
+          Favorites
+        </h3>
+        <div className="space-y-1">
+          {safeFavoriteFiles.length > 0 ? (
+            safeFavoriteFiles.map((file) => (
+              <Button
+                key={file.id}
+                variant="ghost"
+                className="w-full justify-start text-sm h-auto py-1.5"
+                onClick={() => setSelectedFileId(file.id)}
+              >
+                <span className="truncate">{file.name}</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">No favorite files</p>
+          )}
+        </div>
       </div>
-      <div className="flex-1 overflow-auto py-2">
-        <nav className="grid gap-1 px-2">
-          <Link
-            href="/dashboard"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-              isActive("/dashboard") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-            )}
-          >
-            <Home className="h-4 w-4" />
-            <span>Home</span>
-          </Link>
 
-          {/* AI Family Section */}
-          <div>
-            <Button
-              variant="ghost"
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-              onClick={() => toggleSection("aiFamily")}
-            >
-              <div className="flex items-center gap-3">
-                <Users className="h-4 w-4" />
-                <span>AI Family</span>
-              </div>
-              {openSections.aiFamily ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium flex items-center mb-2">
+          <Clock className="h-4 w-4 mr-2" />
+          Recent Files
+        </h3>
+        <div className="space-y-1">
+          {safeRecentFiles.length > 0 ? (
+            safeRecentFiles.map((file) => (
+              <Button
+                key={file.id}
+                variant="ghost"
+                className="w-full justify-start text-sm h-auto py-1.5"
+                onClick={() => setSelectedFileId(file.id)}
+              >
+                <span className="truncate">{file.name}</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">No recent files</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-sm font-medium flex items-center mb-2">
+          <Star className="h-4 w-4 mr-2" />
+          Frequent Files
+        </h3>
+        <div className="space-y-1">
+          {safeFrequentFiles.length > 0 ? (
+            safeFrequentFiles.map((file) => (
+              <Button
+                key={file.id}
+                variant="ghost"
+                className="w-full justify-start text-sm h-auto py-1.5"
+                onClick={() => setSelectedFileId(file.id)}
+              >
+                <span className="truncate">{file.name}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{file.accessCount}×</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">No frequent files</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-sm font-medium flex items-center mb-2">
+          <Brain className="h-4 w-4 mr-2 text-primary" />
+          Suggested Files
+        </h3>
+        <div className="space-y-1">
+          {safeSuggestedFiles.length > 0 ? (
+            safeSuggestedFiles.map((file) => (
+              <Button
+                key={file.id}
+                variant="ghost"
+                className="w-full justify-start text-sm h-auto py-1.5"
+                onClick={() => setSelectedFileId(file.id)}
+              >
+                <span className="truncate">{file.name}</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">No suggestions yet</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-sm font-medium flex items-center mb-2">
+          <Search className="h-4 w-4 mr-2" />
+          Recent Searches
+        </h3>
+        <div className="space-y-1">
+          {safeRecentSearches.length > 0 ? (
+            safeRecentSearches.map((query, index) => (
+              <Button
+                key={index}
+                variant="ghost"
+                className="w-full justify-start text-sm h-auto py-1.5"
+                onClick={() => setSearchQuery?.(query)}
+              >
+                <span className="truncate">{query}</span>
+              </Button>
+            ))
+          ) : (
+            <p className="text-xs text-muted-foreground px-2">No recent searches</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-auto space-y-2">
+        <Dialog open={isMemoryDialogOpen} onOpenChange={setIsMemoryDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear Memory
             </Button>
-            {openSections.aiFamily && (
-              <div className="ml-4 mt-1 grid gap-1">
-                <Link
-                  href="/ai-family"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/ai-family") && !pathname.includes("/ai-family/")
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <span>All Members</span>
-                </Link>
-                {AI_FAMILY_MEMBERS.map((member) => (
-                  <Link
-                    key={member.id}
-                    href={`/ai-family/${member.id}`}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                      isActive(`/ai-family/${member.id}`)
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    <span>{member.name}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Clear Memory</DialogTitle>
+              <DialogDescription>
+                This will clear all your memory data including recent files, favorites, and search history. This action
+                cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsMemoryDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleClearMemory}>
+                Clear Memory
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          {/* Voice Services */}
-          <Link
-            href="/voice-services"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-              isActive("/voice-services") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-            )}
-          >
-            <Mic className="h-4 w-4" />
-            <span>Voice Services</span>
-          </Link>
-
-          {/* Tools Section */}
-          <div>
-            <Button
-              variant="ghost"
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-              onClick={() => toggleSection("tools")}
-            >
-              <div className="flex items-center gap-3">
-                <Tool className="h-4 w-4" />
-                <span>Tools</span>
-              </div>
-              {openSections.tools ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
-            {openSections.tools && (
-              <div className="ml-4 mt-1 grid gap-1">
-                <Link
-                  href="/tools"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/tools") && !pathname.includes("/tools/")
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <span>All Tools</span>
-                </Link>
-                <Link
-                  href="/tools/create"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/tools/create") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <span>Create Tool</span>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Content Section */}
-          <div>
-            <Button
-              variant="ghost"
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-              onClick={() => toggleSection("content")}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="h-4 w-4" />
-                <span>Content</span>
-              </div>
-              {openSections.content ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
-            {openSections.content && (
-              <div className="ml-4 mt-1 grid gap-1">
-                <Link
-                  href="/analytics"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/analytics") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <BarChart className="h-4 w-4" />
-                  <span>Analytics</span>
-                </Link>
-                <Link
-                  href="/presentations"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/presentations") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <Presentation className="h-4 w-4" />
-                  <span>Presentations</span>
-                </Link>
-                <Link
-                  href="/upload"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/upload") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <Upload className="h-4 w-4" />
-                  <span>Upload</span>
-                </Link>
-                <Link
-                  href="/demos"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/demos") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <BookOpen className="h-4 w-4" />
-                  <span>Demos</span>
-                </Link>
-                <Link
-                  href="/case-studies"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/case-studies") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <Briefcase className="h-4 w-4" />
-                  <span>Case Studies</span>
-                </Link>
-                <Link
-                  href="/sales"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/sales") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                  <span>Sales</span>
-                </Link>
-                <Link
-                  href="/training"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-                    isActive("/training") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <GraduationCap className="h-4 w-4" />
-                  <span>Training</span>
-                </Link>
-              </div>
-            )}
-          </div>
-
-          {/* Settings */}
-          <Link
-            href="/settings"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-              isActive("/settings") ? "bg-accent text-accent-foreground" : "text-muted-foreground",
-            )}
-          >
-            <Settings className="h-4 w-4" />
-            <span>Settings</span>
-          </Link>
-        </nav>
+        <Button variant="ghost" className="w-full justify-start">
+          <Settings className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
+        <Button variant="ghost" className="w-full justify-start">
+          <HelpCircle className="h-4 w-4 mr-2" />
+          Help & Support
+        </Button>
       </div>
     </div>
   )
