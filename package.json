@@ -85,7 +85,8 @@
     "uuid": "latest",
     "diff-match-patch": "latest",
     "@prisma/client": "latest",
-    "@vercel/kv": "latest"
+    "@vercel/kv": "latest",
+    "tailwindcss": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
