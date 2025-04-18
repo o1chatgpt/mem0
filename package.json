@@ -75,8 +75,6 @@
     "sqlite3": "latest",
     "pg-native": "latest",
     "prisma": "latest",
-    "h3": "latest",
-    "express": "latest",
     "basic-ftp": "latest",
     "path": "latest",
     "jose": "latest",
@@ -88,7 +86,6 @@
     "diff-match-patch": "latest",
     "@prisma/client": "latest",
     "@vercel/kv": "latest",
-    "uploadthing": "latest",
     "tailwindcss": "latest"
   },
   "devDependencies": {
