@@ -1,14 +1,14 @@
 import type React from "react"
-import "./globals.css"
-import type { Metadata } from "next"
+import "@/app/globals.css"
 import { Inter } from "next/font/google"
-import { SupabaseProvider } from "@/lib/supabase-context"
+import { ThemeProvider } from "@/components/theme-provider"
+import { EnvValidationProvider } from "@/components/env-validation-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "File Manager with Mem0",
-  description: "A file manager with AI family members powered by Mem0",
+export const metadata = {
+  title: "File Manager",
+  description: "A modern file management system with AI capabilities",
     generator: 'v0.dev'
 }
 
@@ -20,7 +20,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SupabaseProvider>{children}</SupabaseProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <EnvValidationProvider>
+            <main className="min-h-screen bg-background">{children}</main>
+          </EnvValidationProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
