@@ -1,97 +1,139 @@
-import { Memory } from "mem0ai"
-import { config } from "./config"
+import { createClient } from "@supabase/supabase-js"
 
-export class Mem0Integration {
-  private memory: Memory
-  private initialized = false
-  private apiEnabled = false
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-  constructor() {
-    this.memory = new Memory()
-    this.apiEnabled = !!config.mem0ApiKey
-  }
+// Function to integrate with Mem0 API
+export async function storeMemoryWithMem0(userId: string, aiFamily: string, memory: string): Promise<boolean> {
+  try {
+    const apiKey = process.env.MEM0_API_KEY
+    const apiUrl = process.env.MEM0_API_URL
 
-  async initialize(): Promise<boolean> {
-    if (this.initialized) return this.apiEnabled
+    if (!apiKey || !apiUrl) {
+      console.warn("Mem0 API key or URL not configured")
 
-    if (!config.mem0ApiKey) {
-      console.log("Mem0 API key not found, integration disabled")
-      this.apiEnabled = false
-      this.initialized = true
-      return false
-    }
+      // Fall back to storing in our database
+      const { error } = await supabase.from("ai_family_member_memories").insert([
+        {
+          ai_family_member_id: aiFamily,
+          user_id: userId,
+          memory,
+        },
+      ])
 
-    try {
-      // Test the connection
-      await this.memory.search({ query: "test", user_id: "test", limit: 1 })
-
-      this.apiEnabled = true
-      this.initialized = true
-      console.log("Mem0 integration initialized successfully")
+      if (error) throw error
       return true
-    } catch (error) {
-      console.error("Failed to initialize Mem0 integration:", error)
-      this.apiEnabled = false
-      this.initialized = true
-      return false
     }
-  }
 
-  async addMemory(memory: string, userId: string, metadata: Record<string, any> = {}): Promise<void> {
-    if (!this.apiEnabled) return
+    // This is where we would integrate with the Mem0 API
+    console.log(`Mem0 integration: Storing memory for user ${userId} and AI ${aiFamily}: ${memory}`)
 
-    try {
-      await this.memory.add([{ role: "system", content: memory }], userId)
-    } catch (error) {
-      console.error("Error adding memory to Mem0:", error)
-    }
-  }
+    // For now, we'll just store in our database
+    const { error } = await supabase.from("ai_family_member_memories").insert([
+      {
+        ai_family_member_id: aiFamily,
+        user_id: userId,
+        memory,
+      },
+    ])
 
-  async searchMemories(query: string, userId: string, limit = 5): Promise<any> {
-    if (!this.apiEnabled) return { results: [] }
-
-    try {
-      return await this.memory.search({ query, user_id: userId, limit })
-    } catch (error) {
-      console.error("Error searching memories in Mem0:", error)
-      return { results: [] }
-    }
-  }
-
-  async storeStructuredMemory<T>(key: string, data: T, userId: string): Promise<void> {
-    if (!this.apiEnabled) return
-
-    try {
-      await this.memory.storeMemory(key, data, userId)
-    } catch (error) {
-      console.error("Error storing structured memory in Mem0:", error)
-    }
-  }
-
-  async retrieveStructuredMemory<T>(key: string, userId: string): Promise<T | null> {
-    if (!this.apiEnabled) return null
-
-    try {
-      return await this.memory.retrieveMemory(key, userId)
-    } catch (error) {
-      console.error("Error retrieving structured memory from Mem0:", error)
-      return null
-    }
-  }
-
-  async clearMemories(userId: string): Promise<void> {
-    if (!this.apiEnabled) return
-
-    try {
-      await this.memory.clearMemory(userId)
-    } catch (error) {
-      console.error("Error clearing memories in Mem0:", error)
-    }
-  }
-
-  isEnabled(): boolean {
-    return this.apiEnabled
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error("Error storing memory:", error)
+    return false
   }
 }
 
-export const mem0Integration = new Mem0Integration()
+// Function to retrieve memories from Mem0 API
+export async function getMemoriesFromMem0(userId: string, aiFamily: string, limit = 10): Promise<any[]> {
+  try {
+    const apiKey = process.env.MEM0_API_KEY
+    const apiUrl = process.env.MEM0_API_URL
+
+    if (!apiKey || !apiUrl) {
+      console.warn("Mem0 API key or URL not configured")
+
+      // Fall back to retrieving from our database
+      const { data, error } = await supabase
+        .from("ai_family_member_memories")
+        .select("*")
+        .eq("ai_family_member_id", aiFamily)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+      return data || []
+    }
+
+    // This is where we would integrate with the Mem0 API
+    console.log(`Mem0 integration: Retrieving memories for user ${userId} and AI ${aiFamily}`)
+
+    // For now, we'll just retrieve from our database
+    const { data, error } = await supabase
+      .from("ai_family_member_memories")
+      .select("*")
+      .eq("ai_family_member_id", aiFamily)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error("Error retrieving memories:", error)
+    return []
+  }
+}
+
+// Function to search memories from Mem0 API
+export async function searchMemoriesFromMem0(
+  userId: string,
+  aiFamily: string,
+  query: string,
+  limit = 10,
+): Promise<any[]> {
+  try {
+    const apiKey = process.env.MEM0_API_KEY
+    const apiUrl = process.env.MEM0_API_URL
+
+    if (!apiKey || !apiUrl) {
+      console.warn("Mem0 API key or URL not configured")
+
+      // Fall back to searching in our database
+      const { data, error } = await supabase
+        .from("ai_family_member_memories")
+        .select("*")
+        .eq("ai_family_member_id", aiFamily)
+        .eq("user_id", userId)
+        .ilike("memory", `%${query}%`)
+        .order("created_at", { ascending: false })
+        .limit(limit)
+
+      if (error) throw error
+      return data || []
+    }
+
+    // This is where we would integrate with the Mem0 API
+    console.log(`Mem0 integration: Searching memories for user ${userId} and AI ${aiFamily} with query: ${query}`)
+
+    // For now, we'll just search in our database
+    const { data, error } = await supabase
+      .from("ai_family_member_memories")
+      .select("*")
+      .eq("ai_family_member_id", aiFamily)
+      .eq("user_id", userId)
+      .ilike("memory", `%${query}%`)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error("Error searching memories:", error)
+    return []
+  }
+}
