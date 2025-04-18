@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import type { Memory, MemoryCategory } from "@/lib/mem0"
 import { BrainCircuit, Send, Info, Tag, Filter } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -27,6 +26,26 @@ type Message = {
   content: string
   memoryCount?: number
   category?: string | null
+}
+
+type Memory = {
+  id: number
+  content: string
+  created_at: string
+  ai_member_id: number | null
+  category?: string | null
+  relevance_score?: number
+}
+
+type MemoryCategory = {
+  id: number
+  name: string
+  description: string | null
+  color: string | null
+  icon: string | null
+  user_id: number
+  created_at: string
+  prompt_template?: string | null
 }
 
 type MemoryStats = {
@@ -202,6 +221,7 @@ export function Mem0Chat({ userId, aiMemberId }: Mem0ChatProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "updateMemoryCategory",
+          userId,
           memoryId,
           category,
         }),

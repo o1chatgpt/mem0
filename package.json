@@ -75,7 +75,8 @@
     "path": "latest",
     "commander": "latest",
     "inquirer": "latest",
-    "chalk": "latest"
+    "chalk": "latest",
+    "dotenv": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
