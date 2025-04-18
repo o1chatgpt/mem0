@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { FileExplorer } from "@/components/file-explorer"
 import { FileViewer } from "@/components/file-viewer"
 import { Sidebar } from "@/components/sidebar"
@@ -12,48 +11,10 @@ import { ServerDashboard } from "@/components/server-dashboard"
 import { WebsiteManager } from "@/components/website-manager"
 import { FileManagementInfo } from "@/components/file-management-info"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AIFamily } from "@/components/ai-family"
 
-export default function FilesPage() {
+export default function DirectEntryPage() {
   const [activeTab, setActiveTab] = useState("files")
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch("/api/auth/check")
-        const data = await response.json()
-
-        if (data.authenticated) {
-          setIsAuthenticated(true)
-        } else {
-          // Redirect to login if not authenticated
-          router.push("/login")
-        }
-      } catch (error) {
-        console.error("Auth check error:", error)
-        // On error, still allow access (fallback to client-side check)
-        setIsAuthenticated(true)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [router])
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null // Don't render anything while redirecting
-  }
 
   return (
     <AppProvider>
@@ -66,6 +27,7 @@ export default function FilesPage() {
               <TabsTrigger value="files">Files</TabsTrigger>
               <TabsTrigger value="server">Server</TabsTrigger>
               <TabsTrigger value="websites">Websites</TabsTrigger>
+              <TabsTrigger value="ai-family">AI Family</TabsTrigger>
               <TabsTrigger value="info">System Info</TabsTrigger>
             </TabsList>
 
@@ -85,6 +47,10 @@ export default function FilesPage() {
 
             <TabsContent value="websites">
               <WebsiteManager />
+            </TabsContent>
+
+            <TabsContent value="ai-family">
+              <AIFamily />
             </TabsContent>
 
             <TabsContent value="info">
