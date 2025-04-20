@@ -58,6 +58,7 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
+    "pg-native": "latest",
     "@anthropic-ai/sdk": "latest",
     "@google/genai": "latest",
     "@mistralai/mistralai": "latest",
@@ -73,6 +74,14 @@
     "pg": "latest",
     "redis": "latest",
     "sqlite3": "latest",
+    "basic-ftp": "latest",
+    "path": "latest",
+    "jose": "latest",
+    "crypto": "latest",
+    "fs": "latest",
+    "react-hotkeys-hook": "latest",
+    "file-saver": "latest",
+    "jszip": "latest",
     "mem0ai": "latest"
   },
   "devDependencies": {
