@@ -37,7 +37,7 @@ export interface Memory {
   memory: string
   created_at: string
   user_id: string
-  ai_family_member: string
+  ai_family_member_id: string
   relevance?: number
 }
 
@@ -66,7 +66,7 @@ export async function addMemory(aiFamily: string, memory: string, userId = "defa
     // Fall back to storing in our database
     const { error } = await supabase.from("ai_family_member_memories").insert([
       {
-        ai_family_member: aiFamily,
+        ai_family_member_id: aiFamily,
         user_id: userId,
         memory,
       },
@@ -95,7 +95,7 @@ export async function getMemories(aiFamily: string, userId = "default_user", lim
           memory: mem.memory || mem.content,
           created_at: new Date(mem.created_at || Date.now()).toISOString(),
           user_id: userId,
-          ai_family_member: aiFamily,
+          ai_family_member_id: aiFamily,
         }))
       } catch (mem0Error) {
         console.warn("Error using Mem0 client for retrieval, falling back to database:", mem0Error)
@@ -106,7 +106,7 @@ export async function getMemories(aiFamily: string, userId = "default_user", lim
     const { data, error } = await supabase
       .from("ai_family_member_memories")
       .select("*")
-      .eq("ai_family_member", aiFamily)
+      .eq("ai_family_member_id", aiFamily)
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit)
@@ -143,7 +143,7 @@ export async function searchMemories(
           memory: result.memory || result.content,
           created_at: new Date(result.created_at || Date.now()).toISOString(),
           user_id: userId,
-          ai_family_member: aiFamily,
+          ai_family_member_id: aiFamily,
           relevance: result.relevance || result.score,
         }))
       } catch (mem0Error) {
@@ -155,7 +155,7 @@ export async function searchMemories(
     const { data, error } = await supabase
       .from("ai_family_member_memories")
       .select("*")
-      .eq("ai_family_member", aiFamily)
+      .eq("ai_family_member_id", aiFamily)
       .eq("user_id", userId)
       .ilike("memory", `%${query}%`)
       .order("created_at", { ascending: false })

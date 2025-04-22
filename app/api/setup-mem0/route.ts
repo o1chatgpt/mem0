@@ -12,7 +12,7 @@ export async function GET() {
     const createTableQuery = `
       CREATE TABLE IF NOT EXISTS public.ai_family_member_memories (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        ai_family_member TEXT NOT NULL,
+        ai_family_member_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         memory TEXT NOT NULL,
         embedding VECTOR(1536),
@@ -21,8 +21,8 @@ export async function GET() {
       );
       
       -- Create indexes for better performance
-      CREATE INDEX IF NOT EXISTS idx_ai_family_member_memories_ai_family_member 
-        ON public.ai_family_member_memories(ai_family_member);
+      CREATE INDEX IF NOT EXISTS idx_ai_family_member_memories_ai_family_member_id 
+        ON public.ai_family_member_memories(ai_family_member_id);
       
       CREATE INDEX IF NOT EXISTS idx_ai_family_member_memories_user_id 
         ON public.ai_family_member_memories(user_id);
