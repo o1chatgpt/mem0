@@ -18,6 +18,7 @@ import {
   CreditCard,
   Briefcase,
   Brain,
+  TestTube,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -36,6 +37,11 @@ const sidebarItems = [
     title: "Mem0 Chat",
     href: "/mem0-chat",
     icon: Brain,
+  },
+  {
+    title: "Memory Testing",
+    href: "/memory-testing",
+    icon: TestTube,
   },
   {
     title: "Cards",

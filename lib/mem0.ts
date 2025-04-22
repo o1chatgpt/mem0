@@ -41,6 +41,27 @@ export interface Memory {
   relevance?: number
 }
 
+// Map string IDs to valid UUIDs for database operations
+const AI_FAMILY_UUID_MAP: Record<string, string> = {
+  mem0: "00000000-0000-0000-0000-000000000001",
+  lyra: "00000000-0000-0000-0000-000000000002",
+  sophia: "00000000-0000-0000-0000-000000000003",
+  kara: "00000000-0000-0000-0000-000000000004",
+  stan: "00000000-0000-0000-0000-000000000005",
+  dan: "00000000-0000-0000-0000-000000000006",
+}
+
+// Helper function to get UUID for an AI family member
+function getAiFamilyUuid(aiFamily: string): string {
+  return AI_FAMILY_UUID_MAP[aiFamily.toLowerCase()] || aiFamily
+}
+
+// Helper function to get string ID from UUID
+function getAiFamilyStringId(uuid: string): string {
+  const entry = Object.entries(AI_FAMILY_UUID_MAP).find(([_, value]) => value === uuid)
+  return entry ? entry[0] : uuid
+}
+
 // Function to add a memory using Mem0
 export async function addMemory(aiFamily: string, memory: string, userId = "default_user"): Promise<boolean> {
   try {
@@ -63,10 +84,13 @@ export async function addMemory(aiFamily: string, memory: string, userId = "defa
       }
     }
 
+    // Get UUID for the AI family member
+    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+
     // Fall back to storing in our database
     const { error } = await supabase.from("ai_family_member_memories").insert([
       {
-        ai_family_member_id: aiFamily,
+        ai_family_member_id: aiFamilyUuid,
         user_id: userId,
         memory,
       },
@@ -102,17 +126,25 @@ export async function getMemories(aiFamily: string, userId = "default_user", lim
       }
     }
 
+    // Get UUID for the AI family member
+    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+
     // Fall back to retrieving from our database
     const { data, error } = await supabase
       .from("ai_family_member_memories")
       .select("*")
-      .eq("ai_family_member_id", aiFamily)
+      .eq("ai_family_member_id", aiFamilyUuid)
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit)
 
     if (error) throw error
-    return data || []
+
+    // Convert UUIDs back to string IDs in the response
+    return (data || []).map((memory) => ({
+      ...memory,
+      ai_family_member_id: getAiFamilyStringId(memory.ai_family_member_id),
+    }))
   } catch (error) {
     console.error("Error fetching memories:", error)
     return []
@@ -151,20 +183,88 @@ export async function searchMemories(
       }
     }
 
+    // Get UUID for the AI family member
+    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+
     // Fall back to searching in our database
     const { data, error } = await supabase
       .from("ai_family_member_memories")
       .select("*")
-      .eq("ai_family_member_id", aiFamily)
+      .eq("ai_family_member_id", aiFamilyUuid)
       .eq("user_id", userId)
       .ilike("memory", `%${query}%`)
       .order("created_at", { ascending: false })
       .limit(limit)
 
     if (error) throw error
-    return data || []
+
+    // Convert UUIDs back to string IDs in the response
+    return (data || []).map((memory) => ({
+      ...memory,
+      ai_family_member_id: getAiFamilyStringId(memory.ai_family_member_id),
+    }))
   } catch (error) {
     console.error("Error searching memories:", error)
     return []
+  }
+}
+
+// Function to add a memory with a specific timestamp
+export async function addMemoryWithTimestamp(
+  aiFamily: string,
+  memory: string,
+  timestamp: string,
+  userId = "default_user",
+): Promise<boolean> {
+  try {
+    // Get UUID for the AI family member
+    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+
+    // Store in our database with the specified timestamp
+    const { error } = await supabase.from("ai_family_member_memories").insert([
+      {
+        ai_family_member_id: aiFamilyUuid,
+        user_id: userId,
+        memory,
+        created_at: timestamp,
+        updated_at: timestamp,
+      },
+    ])
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error("Error adding memory with timestamp:", error)
+    return false
+  }
+}
+
+// Function to add memories with time references for testing temporal questions
+export async function addTimeReferencedMemories(
+  aiFamily: string,
+  memories: Array<{ memory: string; timestamp: string }>,
+  userId = "default_user",
+): Promise<boolean> {
+  try {
+    // Get UUID for the AI family member
+    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+
+    // Prepare the memories with timestamps
+    const memoriesToInsert = memories.map((mem) => ({
+      ai_family_member_id: aiFamilyUuid,
+      user_id: userId,
+      memory: mem.memory,
+      created_at: mem.timestamp,
+      updated_at: mem.timestamp,
+    }))
+
+    // Insert all memories
+    const { error } = await supabase.from("ai_family_member_memories").insert(memoriesToInsert)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error("Error adding time-referenced memories:", error)
+    return false
   }
 }
