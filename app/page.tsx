@@ -1,101 +1,133 @@
 "use client"
-
-import { useState } from "react"
-import dynamic from "next/dynamic"
-import { Header } from "@/components/header"
-import { LoadingOverlay } from "@/components/loading-overlay"
+import { DashboardStats } from "@/components/dashboard-stats"
+import { FileExplorer } from "@/components/file-explorer"
+import { RecentMemories } from "@/components/recent-memories"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Users, FolderOpen, BrainCircuit } from "lucide-react"
+import Link from "next/link"
 
-// Dynamically import components that use browser APIs
-const FileExplorer = dynamic(() => import("@/components/file-explorer").then((mod) => mod.FileExplorer), { ssr: false })
-const FileViewer = dynamic(() => import("@/components/file-viewer").then((mod) => mod.FileViewer), { ssr: false })
-const FileManagementInfo = dynamic(
-  () => import("@/components/file-management-info").then((mod) => mod.FileManagementInfo),
-  { ssr: false },
-)
-const NetworkServers = dynamic(() => import("@/components/network-servers").then((mod) => mod.NetworkServers), {
-  ssr: false,
-})
-const ApiKeyManager = dynamic(() => import("@/components/api-key-manager").then((mod) => mod.ApiKeyManager), {
-  ssr: false,
-})
-const CollaborationPanel = dynamic(
-  () => import("@/components/collaboration-panel").then((mod) => mod.CollaborationPanel),
-  { ssr: false },
-)
-const AppProvider = dynamic(() => import("@/lib/app-context").then((mod) => mod.AppProvider), { ssr: false })
-
-export default function FilesPage() {
-  const [activeTab, setActiveTab] = useState("files")
+export default function DashboardPage() {
+  // In a real app, this would come from authentication
+  const userId = 1 // Using the admin user we created in the database
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="border-b p-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">File Manager with Mem0</h1>
-      </div>
-
-      <div className="flex-1 overflow-hidden p-4">
-        <p>Loading application...</p>
-      </div>
-
-      {/* The actual app will be loaded client-side only */}
-      <AppProvider>
-        <div className="flex flex-col h-screen">
-          <Header activeTab={activeTab} onTabChange={setActiveTab} />
-
-          <div className="flex-1 overflow-hidden p-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="files">Files</TabsTrigger>
-                <TabsTrigger value="network">Network</TabsTrigger>
-                <TabsTrigger value="collaborate">Collaborate</TabsTrigger>
-                <TabsTrigger value="api">API Keys</TabsTrigger>
-                <TabsTrigger value="info">System Info</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="files" className="h-[calc(100%-40px)]">
-                <div className="flex h-full overflow-hidden">
-                  <FileExplorer />
-                  <FileViewer />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="network">
-                <NetworkServers />
-              </TabsContent>
-
-              <TabsContent value="collaborate">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <FileViewer />
-                  </div>
-                  <div>
-                    <CollaborationPanel />
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="api">
-                <ApiKeyManager />
-              </TabsContent>
-
-              <TabsContent value="info">
-                <FileManagementInfo />
-              </TabsContent>
-
-              <TabsContent value="settings">
-                <div className="p-4">
-                  <h2 className="text-2xl font-bold mb-4">Settings</h2>
-                  <p>Settings panel coming soon...</p>
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          <LoadingOverlay />
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">File Manager Dashboard</h1>
+        <div className="flex space-x-2">
+          <Link href="/ai-family">
+            <Button variant="outline">
+              <Users className="mr-2 h-4 w-4" />
+              AI Family
+            </Button>
+          </Link>
+          <Link href="/mem0-integration">
+            <Button variant="outline">
+              <BrainCircuit className="mr-2 h-4 w-4" />
+              Mem0 Integration
+            </Button>
+          </Link>
         </div>
-      </AppProvider>
+      </div>
+
+      <DashboardStats userId={userId} />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <Tabs defaultValue="files">
+            <TabsList>
+              <TabsTrigger value="files">
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Files & Folders
+              </TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="shared">Shared</TabsTrigger>
+            </TabsList>
+            <TabsContent value="files" className="mt-4">
+              <div className="h-[500px]">
+                <FileExplorer userId={userId} />
+              </div>
+            </TabsContent>
+            <TabsContent value="recent" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Files</CardTitle>
+                  <CardDescription>Files you've recently accessed</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>Coming soon...</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="shared" className="mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Shared Files</CardTitle>
+                  <CardDescription>Files shared with you</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>Coming soon...</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <div className="space-y-6">
+          <RecentMemories userId={userId} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-medium">AI Family</CardTitle>
+              <CardDescription>Your AI assistants</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Link href="/ai-family/1/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-blue-100 text-blue-800 p-2 rounded-full mr-3">A</div>
+                      <div className="text-left">
+                        <div className="font-medium">Archie</div>
+                        <div className="text-xs text-muted-foreground">File Organizer</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family/2/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-purple-100 text-purple-800 p-2 rounded-full mr-3">P</div>
+                      <div className="text-left">
+                        <div className="font-medium">Pixel</div>
+                        <div className="text-xs text-muted-foreground">Media Assistant</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family/4/chat">
+                  <Button variant="outline" className="w-full justify-start">
+                    <div className="flex items-center">
+                      <div className="bg-green-100 text-green-800 p-2 rounded-full mr-3">M</div>
+                      <div className="text-left">
+                        <div className="font-medium">Memo</div>
+                        <div className="text-xs text-muted-foreground">Memory Keeper</div>
+                      </div>
+                    </div>
+                  </Button>
+                </Link>
+                <Link href="/ai-family">
+                  <Button variant="ghost" className="w-full mt-2">
+                    View all AI Family Members
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
