@@ -284,177 +284,177 @@ export default function AiFamilyMemberCardPage() {
           <TabsTrigger value="yaml">YAML Config</TabsTrigger>
           <TabsTrigger value="vector-store">Vector Store</TabsTrigger>
         </TabsList>
-      </Tabs>
 
-      <TabsContent value="profile" className="mt-0">
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-1">
-            <Card>
-              <CardHeader className={`bg-${assistant.color}-50 dark:bg-${assistant.color}-900/20`}>
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={assistant.avatar_url || "/placeholder.svg"} alt={assistant.name} />
-                    <AvatarFallback>{assistant.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle>{assistant.name}</CardTitle>
-                    <CardDescription>{assistant.role || assistant.specialty}</CardDescription>
+        <TabsContent value="profile" className="mt-0">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="md:col-span-1">
+              <Card>
+                <CardHeader className={`bg-${assistant.color}-50 dark:bg-${assistant.color}-900/20`}>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={assistant.avatar_url || "/placeholder.svg"} alt={assistant.name} />
+                      <AvatarFallback>{assistant.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle>{assistant.name}</CardTitle>
+                      <CardDescription>{assistant.role || assistant.specialty}</CardDescription>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <p className="mb-4">{assistant.description}</p>
-                <div className="mb-4">
-                  <h3 className="mb-2 text-sm font-medium">Traits</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {(assistant.traits || []).map((trait: string) => (
-                      <Badge key={trait} variant="outline">
-                        {trait}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-medium">Model</h3>
-                  <Badge className="flex items-center gap-1 w-fit">
-                    <Cpu className="h-3 w-3" />
-                    {assistant.model || "GPT-4"}
-                  </Badge>
-                </div>
-              </CardContent>
-              <CardFooter className="bg-muted/50 p-4">
-                <Button asChild className="w-full">
-                  <Link href={`/ai-family/${assistant.id}`}>Chat with {assistant.name}</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-          <div className="md:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Specialties</CardTitle>
-                <CardDescription>Areas where {assistant.name} excels</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {(assistant.specialties || []).map((specialty: string, index: number) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <div className="mt-0.5 rounded-full bg-primary/10 p-1">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                      </div>
-                      <span>{specialty}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>System Prompt</CardTitle>
-                <CardDescription>The base instructions for {assistant.name}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md bg-muted p-4">
-                  <pre className="whitespace-pre-wrap text-sm">{assistant.system_prompt}</pre>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="yaml" className="mt-0">
-        <Card>
-          <CardHeader>
-            <CardTitle>YAML Configuration</CardTitle>
-            <CardDescription>The YAML configuration for {assistant.name}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md bg-muted p-4 overflow-auto max-h-[600px]">
-              <pre className="text-sm font-mono">{yamlConfig}</pre>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="vector-store" className="mt-0">
-        <Card>
-          <CardHeader>
-            <CardTitle>Vector Store Configuration</CardTitle>
-            <CardDescription>The vector store configuration for {assistant.name}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div>
-                <h3 className="text-lg font-medium mb-4">Vector Store Details</h3>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Provider</h4>
-                    <div className="flex items-center gap-2">
-                      <Badge className="flex items-center gap-1">
-                        <Database className="h-3 w-3" />
-                        {assistant.vector_store || "OpenAI"}
-                      </Badge>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="mb-4">{assistant.description}</p>
+                  <div className="mb-4">
+                    <h3 className="mb-2 text-sm font-medium">Traits</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(assistant.traits || []).map((trait: string) => (
+                        <Badge key={trait} variant="outline">
+                          {trait}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium mb-1">Embedding Model</h4>
-                    <p className="text-sm">text-embedding-ada-002</p>
+                    <h3 className="mb-2 text-sm font-medium">Model</h3>
+                    <Badge className="flex items-center gap-1 w-fit">
+                      <Cpu className="h-3 w-3" />
+                      {assistant.model || "GPT-4"}
+                    </Badge>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Dimensions</h4>
-                    <p className="text-sm">1536</p>
+                </CardContent>
+                <CardFooter className="bg-muted/50 p-4">
+                  <Button asChild className="w-full">
+                    <Link href={`/ai-family/${assistant.id}`}>Chat with {assistant.name}</Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+            <div className="md:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Specialties</CardTitle>
+                  <CardDescription>Areas where {assistant.name} excels</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {(assistant.specialties || []).map((specialty: string, index: number) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <div className="mt-0.5 rounded-full bg-primary/10 p-1">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                        </div>
+                        <span>{specialty}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>System Prompt</CardTitle>
+                  <CardDescription>The base instructions for {assistant.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md bg-muted p-4">
+                    <pre className="whitespace-pre-wrap text-sm">{assistant.system_prompt}</pre>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Chunk Size</h4>
-                    <p className="text-sm">1000 tokens</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="yaml" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>YAML Configuration</CardTitle>
+              <CardDescription>The YAML configuration for {assistant.name}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md bg-muted p-4 overflow-auto max-h-[600px]">
+                <pre className="text-sm font-mono">{yamlConfig}</pre>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="vector-store" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vector Store Configuration</CardTitle>
+              <CardDescription>The vector store configuration for {assistant.name}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Vector Store Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Provider</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge className="flex items-center gap-1">
+                          <Database className="h-3 w-3" />
+                          {assistant.vector_store || "OpenAI"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Embedding Model</h4>
+                      <p className="text-sm">text-embedding-ada-002</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Dimensions</h4>
+                      <p className="text-sm">1536</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Chunk Size</h4>
+                      <p className="text-sm">1000 tokens</p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-4">Memory Statistics</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Total Memories</h4>
+                      <p className="text-sm">24 entries</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Last Updated</h4>
+                      <p className="text-sm">{new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Storage Size</h4>
+                      <p className="text-sm">1.2 MB</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div>
-                <h3 className="text-lg font-medium mb-4">Memory Statistics</h3>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Total Memories</h4>
-                    <p className="text-sm">24 entries</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Last Updated</h4>
-                    <p className="text-sm">{new Date().toLocaleDateString()}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Storage Size</h4>
-                    <p className="text-sm">1.2 MB</p>
-                  </div>
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Integration with Mem0</h3>
+                <p className="text-sm mb-4">
+                  This AI assistant is integrated with Mem0 for enhanced memory capabilities. Mem0 provides long-term
+                  memory retention, allowing the assistant to remember past interactions and user preferences.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />
+                    Mem0 Enabled
+                  </Badge>
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <HardDrive className="h-3 w-3" />
+                    Persistent Storage
+                  </Badge>
                 </div>
               </div>
-            </div>
-            <div className="mt-6">
-              <h3 className="text-lg font-medium mb-4">Integration with Mem0</h3>
-              <p className="text-sm mb-4">
-                This AI assistant is integrated with Mem0 for enhanced memory capabilities. Mem0 provides long-term
-                memory retention, allowing the assistant to remember past interactions and user preferences.
-              </p>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Database className="h-3 w-3" />
-                  Mem0 Enabled
-                </Badge>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <HardDrive className="h-3 w-3" />
-                  Persistent Storage
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full">
-              Refresh Vector Store
-            </Button>
-          </CardFooter>
-        </Card>
-      </TabsContent>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" className="w-full">
+                Refresh Vector Store
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

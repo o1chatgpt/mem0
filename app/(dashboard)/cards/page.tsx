@@ -249,94 +249,94 @@ export default function CardsPage() {
           <TabsTrigger value="grid">Grid View</TabsTrigger>
           <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
-      </Tabs>
 
-      <TabsContent value="grid" className="mt-0">
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {aiFamily.map((member) => (
-            <Card key={member.id} className="overflow-hidden">
-              <CardHeader className={`bg-${member.color}-50 dark:bg-${member.color}-900/20`}>
+        <TabsContent value="grid" className="mt-0">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {aiFamily.map((member) => (
+              <Card key={member.id} className="overflow-hidden">
+                <CardHeader className={`bg-${member.color}-50 dark:bg-${member.color}-900/20`}>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={member.avatar_url || "/placeholder.svg"} alt={member.name} />
+                      <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle>{member.name}</CardTitle>
+                      <CardDescription>{member.role || member.specialty}</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="mb-4">{member.description}</p>
+                  <div className="mb-4">
+                    <h3 className="mb-2 text-sm font-medium">Traits</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {(member.traits || []).map((trait: string) => (
+                        <Badge key={trait} variant="outline">
+                          {trait}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-sm font-medium">Vector Store</h3>
+                    <Badge className="flex items-center gap-1 w-fit">
+                      <Database className="h-3 w-3" />
+                      {member.vector_store || "OpenAI"}
+                    </Badge>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/50 p-4">
+                  <div className="flex w-full gap-2">
+                    <Button asChild variant="default" className="flex-1">
+                      <Link href={`/ai-family/${member.id}`}>Chat</Link>
+                    </Button>
+                    <Button asChild variant="outline" className="flex-1">
+                      <Link href={`/cards/${member.id}`}>Profile</Link>
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-0">
+          <div className="rounded-md border">
+            {aiFamily.map((member, index) => (
+              <div
+                key={member.id}
+                className={`flex items-center justify-between p-4 ${index !== aiFamily.length - 1 ? "border-b" : ""}`}
+              >
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={member.avatar_url || "/placeholder.svg"} alt={member.name} />
                     <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <CardTitle>{member.name}</CardTitle>
-                    <CardDescription>{member.role || member.specialty}</CardDescription>
+                    <h3 className="font-medium">{member.name}</h3>
+                    <p className="text-sm text-muted-foreground">{member.role || member.specialty}</p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <p className="mb-4">{member.description}</p>
-                <div className="mb-4">
-                  <h3 className="mb-2 text-sm font-medium">Traits</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {(member.traits || []).map((trait: string) => (
-                      <Badge key={trait} variant="outline">
-                        {trait}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-sm font-medium">Vector Store</h3>
-                  <Badge className="flex items-center gap-1 w-fit">
-                    <Database className="h-3 w-3" />
-                    {member.vector_store || "OpenAI"}
+                <div className="flex items-center gap-4">
+                  <Badge className="flex items-center gap-1">
+                    {getSpecialtyIcon(member.specialty)}
+                    <span className="ml-1">{member.specialty}</span>
                   </Badge>
-                </div>
-              </CardContent>
-              <CardFooter className="bg-muted/50 p-4">
-                <div className="flex w-full gap-2">
-                  <Button asChild variant="default" className="flex-1">
-                    <Link href={`/ai-family/${member.id}`}>Chat</Link>
-                  </Button>
-                  <Button asChild variant="outline" className="flex-1">
-                    <Link href={`/cards/${member.id}`}>Profile</Link>
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      </TabsContent>
-
-      <TabsContent value="list" className="mt-0">
-        <div className="rounded-md border">
-          {aiFamily.map((member, index) => (
-            <div
-              key={member.id}
-              className={`flex items-center justify-between p-4 ${index !== aiFamily.length - 1 ? "border-b" : ""}`}
-            >
-              <div className="flex items-center gap-4">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={member.avatar_url || "/placeholder.svg"} alt={member.name} />
-                  <AvatarFallback>{member.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-medium">{member.name}</h3>
-                  <p className="text-sm text-muted-foreground">{member.role || member.specialty}</p>
+                  <div className="flex gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/cards/${member.id}`}>Profile</Link>
+                    </Button>
+                    <Button asChild size="sm">
+                      <Link href={`/ai-family/${member.id}`}>Chat</Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <Badge className="flex items-center gap-1">
-                  {getSpecialtyIcon(member.specialty)}
-                  <span className="ml-1">{member.specialty}</span>
-                </Badge>
-                <div className="flex gap-2">
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/cards/${member.id}`}>Profile</Link>
-                  </Button>
-                  <Button asChild size="sm">
-                    <Link href={`/ai-family/${member.id}`}>Chat</Link>
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </TabsContent>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
