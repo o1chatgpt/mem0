@@ -58,4 +58,18 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_ai_tasks_created_at ON public.ai_tasks(created_at);
     `,
   },
+  {
+    name: "20240422_000005_add_tags_to_ai_tasks",
+    description: "Adds tags column to the AI tasks table for categorization",
+    sql: `
+     ALTER TABLE public.ai_tasks 
+     ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+     
+     -- Create an index on the tags column for better performance when filtering by tags
+     CREATE INDEX IF NOT EXISTS idx_ai_tasks_tags ON public.ai_tasks USING GIN(tags);
+     
+     -- Add a comment to the column for documentation
+     COMMENT ON COLUMN public.ai_tasks.tags IS 'Array of tags for categorizing tasks';
+   `,
+  },
 ]

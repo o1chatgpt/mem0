@@ -17,8 +17,6 @@ import {
   X,
   CreditCard,
   Briefcase,
-  Brain,
-  TestTube,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -32,16 +30,6 @@ const sidebarItems = [
     title: "AI Family",
     href: "/ai-family",
     icon: Users,
-  },
-  {
-    title: "Mem0 Chat",
-    href: "/mem0-chat",
-    icon: Brain,
-  },
-  {
-    title: "Memory Testing",
-    href: "/memory-testing",
-    icon: TestTube,
   },
   {
     title: "Cards",

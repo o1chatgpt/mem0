@@ -5,93 +5,35 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Initialize Mem0 if available
-let mem0Client: any = null
-
-// Try to initialize Mem0 client if the package is available
-try {
-  if (process.env.MEM0_API_KEY && process.env.MEM0_API_URL) {
-    // Dynamic import to avoid issues if the package is not installed
-    import("mem0ai")
-      .then((mem0) => {
-        if (mem0.default) {
-          mem0Client = new mem0.default({
-            apiKey: process.env.MEM0_API_KEY,
-            apiUrl: process.env.MEM0_API_URL,
-          })
-          console.log("Mem0 client initialized successfully")
-        } else {
-          console.warn("mem0ai package does not have a default export")
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed to initialize Mem0 client:", err)
-      })
-  }
-} catch (error) {
-  console.warn("Error initializing Mem0:", error)
-}
-
 export interface Memory {
   id: string
   memory: string
   created_at: string
-  user_id: string
-  ai_family_member_id: string
-  relevance?: number
+  ai_family_member: string
 }
 
-// Map string IDs to valid UUIDs for database operations
-const AI_FAMILY_UUID_MAP: Record<string, string> = {
-  mem0: "00000000-0000-0000-0000-000000000001",
-  lyra: "00000000-0000-0000-0000-000000000002",
-  sophia: "00000000-0000-0000-0000-000000000003",
-  kara: "00000000-0000-0000-0000-000000000004",
-  stan: "00000000-0000-0000-0000-000000000005",
-  dan: "00000000-0000-0000-0000-000000000006",
-}
-
-// Helper function to get UUID for an AI family member
-function getAiFamilyUuid(aiFamily: string): string {
-  return AI_FAMILY_UUID_MAP[aiFamily.toLowerCase()] || aiFamily
-}
-
-// Helper function to get string ID from UUID
-function getAiFamilyStringId(uuid: string): string {
-  const entry = Object.entries(AI_FAMILY_UUID_MAP).find(([_, value]) => value === uuid)
-  return entry ? entry[0] : uuid
-}
-
-// Function to add a memory using Mem0
-export async function addMemory(aiFamily: string, memory: string, userId = "default_user"): Promise<boolean> {
+export async function getMemories(aiFamily: string, limit = 10): Promise<Memory[]> {
   try {
-    // First try to use Mem0 API if configured and client is initialized
-    if (mem0Client) {
-      try {
-        // Create a memory using Mem0
-        await mem0Client.add(
-          [
-            { role: "system", content: `Memory for AI assistant ${aiFamily}` },
-            { role: "user", content: memory },
-          ],
-          userId,
-        )
+    const { data, error } = await supabase
+      .from("ai_family_member_memories")
+      .select("*")
+      .eq("ai_family_member", aiFamily)
+      .order("created_at", { ascending: false })
+      .limit(limit)
 
-        console.log(`Memory added with Mem0 for user ${userId} and AI ${aiFamily}: ${memory}`)
-        return true
-      } catch (mem0Error) {
-        console.warn("Error using Mem0 client, falling back to database:", mem0Error)
-      }
-    }
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error("Error fetching memories:", error)
+    return []
+  }
+}
 
-    // Get UUID for the AI family member
-    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
-
-    // Fall back to storing in our database
+export async function addMemory(aiFamily: string, memory: string): Promise<boolean> {
+  try {
     const { error } = await supabase.from("ai_family_member_memories").insert([
       {
-        ai_family_member_id: aiFamilyUuid,
-        user_id: userId,
+        ai_family_member: aiFamily,
         memory,
       },
     ])
@@ -104,167 +46,41 @@ export async function addMemory(aiFamily: string, memory: string, userId = "defa
   }
 }
 
-// Function to get memories
-export async function getMemories(aiFamily: string, userId = "default_user", limit = 10): Promise<Memory[]> {
+export async function searchMemories(aiFamily: string, query: string, limit = 10): Promise<Memory[]> {
   try {
-    // First try to use Mem0 API if client is initialized
-    if (mem0Client) {
-      try {
-        // Get memories from Mem0
-        const memories = await mem0Client.get(userId, limit)
-
-        // Format memories to match our interface
-        return memories.map((mem: any, index: number) => ({
-          id: `mem0-${index}`,
-          memory: mem.memory || mem.content,
-          created_at: new Date(mem.created_at || Date.now()).toISOString(),
-          user_id: userId,
-          ai_family_member_id: aiFamily,
-        }))
-      } catch (mem0Error) {
-        console.warn("Error using Mem0 client for retrieval, falling back to database:", mem0Error)
-      }
-    }
-
-    // Get UUID for the AI family member
-    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
-
-    // Fall back to retrieving from our database
+    // This is a simple search implementation
+    // For production, consider using Supabase's full-text search capabilities
     const { data, error } = await supabase
       .from("ai_family_member_memories")
       .select("*")
-      .eq("ai_family_member_id", aiFamilyUuid)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(limit)
-
-    if (error) throw error
-
-    // Convert UUIDs back to string IDs in the response
-    return (data || []).map((memory) => ({
-      ...memory,
-      ai_family_member_id: getAiFamilyStringId(memory.ai_family_member_id),
-    }))
-  } catch (error) {
-    console.error("Error fetching memories:", error)
-    return []
-  }
-}
-
-// Function to search memories
-export async function searchMemories(
-  aiFamily: string,
-  query: string,
-  userId = "default_user",
-  limit = 10,
-): Promise<Memory[]> {
-  try {
-    // First try to use Mem0 API if client is initialized
-    if (mem0Client) {
-      try {
-        // Search memories using Mem0
-        const searchResults = await mem0Client.search({
-          query,
-          user_id: userId,
-          limit,
-        })
-
-        // Format search results to match our interface
-        return searchResults.results.map((result: any, index: number) => ({
-          id: `mem0-search-${index}`,
-          memory: result.memory || result.content,
-          created_at: new Date(result.created_at || Date.now()).toISOString(),
-          user_id: userId,
-          ai_family_member_id: aiFamily,
-          relevance: result.relevance || result.score,
-        }))
-      } catch (mem0Error) {
-        console.warn("Error using Mem0 client for search, falling back to database:", mem0Error)
-      }
-    }
-
-    // Get UUID for the AI family member
-    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
-
-    // Fall back to searching in our database
-    const { data, error } = await supabase
-      .from("ai_family_member_memories")
-      .select("*")
-      .eq("ai_family_member_id", aiFamilyUuid)
-      .eq("user_id", userId)
+      .eq("ai_family_member", aiFamily)
       .ilike("memory", `%${query}%`)
       .order("created_at", { ascending: false })
       .limit(limit)
 
     if (error) throw error
-
-    // Convert UUIDs back to string IDs in the response
-    return (data || []).map((memory) => ({
-      ...memory,
-      ai_family_member_id: getAiFamilyStringId(memory.ai_family_member_id),
-    }))
+    return data || []
   } catch (error) {
     console.error("Error searching memories:", error)
     return []
   }
 }
 
-// Function to add a memory with a specific timestamp
-export async function addMemoryWithTimestamp(
-  aiFamily: string,
-  memory: string,
-  timestamp: string,
-  userId = "default_user",
-): Promise<boolean> {
+// Function to integrate with Mem0 API
+export async function integrateWithMem0(userId: string, message: string): Promise<void> {
   try {
-    // Get UUID for the AI family member
-    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
+    const apiKey = process.env.MEM0_API_KEY
+    const apiUrl = process.env.MEM0_API_URL
 
-    // Store in our database with the specified timestamp
-    const { error } = await supabase.from("ai_family_member_memories").insert([
-      {
-        ai_family_member_id: aiFamilyUuid,
-        user_id: userId,
-        memory,
-        created_at: timestamp,
-        updated_at: timestamp,
-      },
-    ])
+    if (!apiKey || !apiUrl) {
+      console.warn("Mem0 API key or URL not configured")
+      return
+    }
 
-    if (error) throw error
-    return true
+    // This is where you would integrate with the Mem0 API
+    // For now, we'll just log the message
+    console.log(`Mem0 integration: Storing memory for user ${userId}: ${message}`)
   } catch (error) {
-    console.error("Error adding memory with timestamp:", error)
-    return false
-  }
-}
-
-// Function to add memories with time references for testing temporal questions
-export async function addTimeReferencedMemories(
-  aiFamily: string,
-  memories: Array<{ memory: string; timestamp: string }>,
-  userId = "default_user",
-): Promise<boolean> {
-  try {
-    // Get UUID for the AI family member
-    const aiFamilyUuid = getAiFamilyUuid(aiFamily)
-
-    // Prepare the memories with timestamps
-    const memoriesToInsert = memories.map((mem) => ({
-      ai_family_member_id: aiFamilyUuid,
-      user_id: userId,
-      memory: mem.memory,
-      created_at: mem.timestamp,
-      updated_at: mem.timestamp,
-    }))
-
-    // Insert all memories
-    const { error } = await supabase.from("ai_family_member_memories").insert(memoriesToInsert)
-
-    if (error) throw error
-    return true
-  } catch (error) {
-    console.error("Error adding time-referenced memories:", error)
-    return false
+    console.error("Error integrating with Mem0:", error)
   }
 }

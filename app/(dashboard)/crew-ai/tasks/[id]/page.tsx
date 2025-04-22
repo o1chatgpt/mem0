@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 
 export default function TaskDetailPage() {
   const params = useParams()
@@ -38,12 +39,15 @@ export default function TaskDetailPage() {
     executeTaskWithAgent,
   } = useCrewAI()
 
+  // Add tag state variables after the existing state variables
   const [handoffReason, setHandoffReason] = useState("")
   const [selectedAgentId, setSelectedAgentId] = useState("")
   const [executionResult, setExecutionResult] = useState<string | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [isHandingOff, setIsHandingOff] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [tagInput, setTagInput] = useState("")
+  const [isAddingTag, setIsAddingTag] = useState(false)
 
   const id = typeof params.id === "string" ? params.id : ""
 
@@ -136,6 +140,40 @@ export default function TaskDetailPage() {
       console.error("Error deleting task:", error)
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // Add a function to add a tag to the task
+  const handleAddTag = async () => {
+    if (!tagInput.trim() || !selectedTask) return
+
+    setIsAddingTag(true)
+    try {
+      // Get current tags or empty array if none
+      const currentTags = selectedTask.tags || []
+
+      // Only add if the tag doesn't already exist
+      if (!currentTags.includes(tagInput.trim())) {
+        const updatedTags = [...currentTags, tagInput.trim()]
+        await updateExistingTask(selectedTask.id!, { tags: updatedTags })
+        setTagInput("")
+      }
+    } catch (error) {
+      console.error("Error adding tag:", error)
+    } finally {
+      setIsAddingTag(false)
+    }
+  }
+
+  // Add a function to remove a tag from the task
+  const handleRemoveTag = async (tagToRemove: string) => {
+    if (!selectedTask || !selectedTask.tags) return
+
+    try {
+      const updatedTags = selectedTask.tags.filter((tag) => tag !== tagToRemove)
+      await updateExistingTask(selectedTask.id!, { tags: updatedTags })
+    } catch (error) {
+      console.error("Error removing tag:", error)
     }
   }
 
@@ -239,6 +277,29 @@ export default function TaskDetailPage() {
                   </div>
                 )}
 
+                {selectedTask.tags && selectedTask.tags.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium mb-1">Tags</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTask.tags.map((tag, index) => (
+                        <Badge
+                          key={index}
+                          className="flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                        >
+                          #{tag}
+                          <button
+                            type="button"
+                            className="ml-1 rounded-full h-4 w-4 inline-flex items-center justify-center text-xs"
+                            onClick={() => handleRemoveTag(tag)}
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {selectedTask.handoff_reason && (
                   <div>
                     <h3 className="text-sm font-medium mb-1">Handoff Reason</h3>
@@ -329,6 +390,21 @@ export default function TaskDetailPage() {
                       />
                     </div>
                   )}
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Add Tag</h3>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a tag (e.g., urgent, frontend, bug)"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
+                      />
+                      <Button onClick={handleAddTag} disabled={isAddingTag || !tagInput.trim()}>
+                        {isAddingTag ? "Adding..." : "Add"}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

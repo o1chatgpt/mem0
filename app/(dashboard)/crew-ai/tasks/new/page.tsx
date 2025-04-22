@@ -27,6 +27,8 @@ export default function NewTaskPage() {
   const [assignedTo, setAssignedTo] = useState("")
   const [skillInput, setSkillInput] = useState("")
   const [skills, setSkills] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState("")
+  const [tags, setTags] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [suggestedAgent, setSuggestedAgent] = useState<any>(null)
   const [isFindingAgent, setIsFindingAgent] = useState(false)
@@ -39,9 +41,22 @@ export default function NewTaskPage() {
     }
   }
 
+  // Add a tag
+  const addTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
+      setTags([...tags, tagInput.trim()])
+      setTagInput("")
+    }
+  }
+
   // Remove a skill
   const removeSkill = (skillToRemove: string) => {
     setSkills(skills.filter((skill) => skill !== skillToRemove))
+  }
+
+  // Remove a tag
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter((tag) => tag !== tagToRemove))
   }
 
   // Find the best agent for this task
@@ -88,6 +103,7 @@ export default function NewTaskPage() {
         priority,
         due_date: dueDate || undefined,
         skills_required: skills,
+        tags: tags, // Add tags to the task
       })
 
       if (newTask) {
@@ -192,6 +208,42 @@ export default function NewTaskPage() {
                             type="button"
                             className="ml-1 rounded-full h-4 w-4 inline-flex items-center justify-center text-xs"
                             onClick={() => removeSkill(skill)}
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tags">Tags</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="tags"
+                      placeholder="Add a tag (e.g., urgent, frontend, bug)"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
+                    />
+                    <Button type="button" onClick={addTag} disabled={!tagInput.trim()}>
+                      Add
+                    </Button>
+                  </div>
+
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {tags.map((tag, index) => (
+                        <Badge
+                          key={index}
+                          className="flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                        >
+                          #{tag}
+                          <button
+                            type="button"
+                            className="ml-1 rounded-full h-4 w-4 inline-flex items-center justify-center text-xs"
+                            onClick={() => removeTag(tag)}
                           >
                             ×
                           </button>

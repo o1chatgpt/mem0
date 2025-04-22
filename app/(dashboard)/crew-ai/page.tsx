@@ -187,152 +187,64 @@ export default function CrewAIDashboardPage() {
           <TabsTrigger value="agents">Agents</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
         </TabsList>
+      </Tabs>
 
-        <TabsContent value="overview">
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold">{agents.length}</div>
-                  <Users className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="ghost" size="sm" className="w-full">
-                  <Link href="/crew-ai/agents">View All Agents</Link>
-                </Button>
-              </CardFooter>
-            </Card>
+      <TabsContent value="overview" className="mt-0">
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Agents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold">{agents.length}</div>
+                <Users className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button asChild variant="ghost" size="sm" className="w-full">
+                <Link href="/crew-ai/agents">View All Agents</Link>
+              </Button>
+            </CardFooter>
+          </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold">{taskCounts.in_progress}</div>
-                  <Brain className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="ghost" size="sm" className="w-full">
-                  <Link href="/crew-ai/tasks?status=in_progress">View Active Tasks</Link>
-                </Button>
-              </CardFooter>
-            </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Active Tasks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold">{taskCounts.in_progress}</div>
+                <Brain className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button asChild variant="ghost" size="sm" className="w-full">
+                <Link href="/crew-ai/tasks?status=in_progress">View Active Tasks</Link>
+              </Button>
+            </CardFooter>
+          </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="text-2xl font-bold">{taskCounts.completed}</div>
-                  <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="ghost" size="sm" className="w-full">
-                  <Link href="/crew-ai/tasks?status=completed">View Completed Tasks</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="text-2xl font-bold">{taskCounts.completed}</div>
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button asChild variant="ghost" size="sm" className="w-full">
+                <Link href="/crew-ai/tasks?status=completed">View Completed Tasks</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
 
-          <div className="mt-8">
-            <h2 className="mb-4 text-xl font-semibold">Recent Tasks</h2>
-            <Card>
-              <CardContent className="p-0">
-                <div className="divide-y">
-                  {tasks.length === 0 ? (
-                    <div className="p-8 text-center">
-                      <p className="text-muted-foreground">No tasks found. Create your first task to get started.</p>
-                    </div>
-                  ) : (
-                    tasks.slice(0, 5).map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-4">
-                        <div>
-                          <h3 className="font-medium">{task.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Assigned to:{" "}
-                            {task.assigned_to
-                              ? agents.find((a) => a.id === task.assigned_to)?.name || "Unknown"
-                              : "Unassigned"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          {getStatusBadge(task.status)}
-                          <Button asChild size="sm" variant="outline">
-                            <Link href={`/crew-ai/tasks/${task.id}`}>View</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button asChild variant="ghost" size="sm" className="w-full">
-                  <Link href="/crew-ai/tasks">View All Tasks</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="agents">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {agents.map((agent) => (
-              <Card key={agent.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={agent.avatar_url || "/placeholder.svg"} alt={agent.name} />
-                      <AvatarFallback>{agent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle>{agent.name}</CardTitle>
-                      <CardDescription>{agent.role}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-4">{agent.description || `Specializes in ${agent.specialty}`}</p>
-                  <div>
-                    <h3 className="mb-2 text-sm font-medium">Skills</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {agent.skills.slice(0, 3).map((skill, index) => (
-                        <Badge key={index} variant="outline">
-                          {skill}
-                        </Badge>
-                      ))}
-                      {agent.skills.length > 3 && <Badge variant="outline">+{agent.skills.length - 3} more</Badge>}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href={`/crew-ai/agents/${agent.id}`}>View Profile</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="tasks">
-          <div className="flex justify-between mb-4">
-            <h2 className="text-xl font-semibold">All Tasks</h2>
-            <Button asChild>
-              <Link href="/crew-ai/tasks/new">
-                <Plus className="mr-2 h-4 w-4" />
-                New Task
-              </Link>
-            </Button>
-          </div>
+        <div className="mt-8">
+          <h2 className="mb-4 text-xl font-semibold">Recent Tasks</h2>
           <Card>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -341,7 +253,7 @@ export default function CrewAIDashboardPage() {
                     <p className="text-muted-foreground">No tasks found. Create your first task to get started.</p>
                   </div>
                 ) : (
-                  tasks.map((task) => (
+                  tasks.slice(0, 5).map((task) => (
                     <div key={task.id} className="flex items-center justify-between p-4">
                       <div>
                         <h3 className="font-medium">{task.title}</h3>
@@ -351,6 +263,19 @@ export default function CrewAIDashboardPage() {
                             ? agents.find((a) => a.id === task.assigned_to)?.name || "Unknown"
                             : "Unassigned"}
                         </p>
+                        {task.tags && task.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {task.tags.map((tag, tagIndex) => (
+                              <Badge
+                                key={tagIndex}
+                                variant="outline"
+                                className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                              >
+                                #{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-4">
                         {getStatusBadge(task.status)}
@@ -363,9 +288,97 @@ export default function CrewAIDashboardPage() {
                 )}
               </div>
             </CardContent>
+            <CardFooter>
+              <Button asChild variant="ghost" size="sm" className="w-full">
+                <Link href="/crew-ai/tasks">View All Tasks</Link>
+              </Button>
+            </CardFooter>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="agents" className="mt-0">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {agents.map((agent) => (
+            <Card key={agent.id}>
+              <CardHeader>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={agent.avatar_url || "/placeholder.svg"} alt={agent.name} />
+                    <AvatarFallback>{agent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <CardTitle>{agent.name}</CardTitle>
+                    <CardDescription>{agent.role}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4">{agent.description || `Specializes in ${agent.specialty}`}</p>
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {agent.skills.slice(0, 3).map((skill, index) => (
+                      <Badge key={index} variant="outline">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {agent.skills.length > 3 && <Badge variant="outline">+{agent.skills.length - 3} more</Badge>}
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href={`/crew-ai/agents/${agent.id}`}>View Profile</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="tasks" className="mt-0">
+        <div className="flex justify-between mb-4">
+          <h2 className="text-xl font-semibold">All Tasks</h2>
+          <Button asChild>
+            <Link href="/crew-ai/tasks/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Task
+            </Link>
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {tasks.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-muted-foreground">No tasks found. Create your first task to get started.</p>
+                </div>
+              ) : (
+                tasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between p-4">
+                    <div>
+                      <h3 className="font-medium">{task.title}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Assigned to:{" "}
+                        {task.assigned_to
+                          ? agents.find((a) => a.id === task.assigned_to)?.name || "Unknown"
+                          : "Unassigned"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {getStatusBadge(task.status)}
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/crew-ai/tasks/${task.id}`}>View</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </TabsContent>
     </div>
   )
 }

@@ -96,6 +96,7 @@ export interface Task {
   handoff_reason?: string | null
   result?: string | null
   skills_required?: string[]
+  tags?: string[]
 }
 
 // Agent interface

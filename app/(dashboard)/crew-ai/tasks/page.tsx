@@ -18,6 +18,7 @@ export default function TasksPage() {
   const [filteredTasks, setFilteredTasks] = useState(tasks)
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all")
   const [agentFilter, setAgentFilter] = useState("all")
+  const [tagFilter, setTagFilter] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
 
   useEffect(() => {
@@ -37,6 +38,11 @@ export default function TasksPage() {
       filtered = filtered.filter((task) => task.assigned_to === agentFilter)
     }
 
+    // Apply tag filter
+    if (tagFilter !== "all") {
+      filtered = filtered.filter((task) => task.tags && task.tags.includes(tagFilter))
+    }
+
     // Apply search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
@@ -46,7 +52,18 @@ export default function TasksPage() {
     }
 
     setFilteredTasks(filtered)
-  }, [tasks, statusFilter, agentFilter, searchQuery])
+  }, [tasks, statusFilter, agentFilter, tagFilter, searchQuery])
+
+  // Get all unique tags from tasks
+  const getAllTags = () => {
+    const allTags = new Set<string>()
+    tasks.forEach((task) => {
+      if (task.tags && task.tags.length > 0) {
+        task.tags.forEach((tag) => allTags.add(tag))
+      }
+    })
+    return Array.from(allTags).sort()
+  }
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -186,6 +203,24 @@ export default function TasksPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-40">
+            <Select value={tagFilter} onValueChange={setTagFilter}>
+              <SelectTrigger>
+                <div className="flex items-center">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <span>Tag</span>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {getAllTags().map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    #{tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -213,6 +248,19 @@ export default function TasksPage() {
                         ? agents.find((a) => a.id === task.assigned_to)?.name || "Unknown"
                         : "Unassigned"}
                     </p>
+                    {task.tags && task.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {task.tags.map((tag, tagIndex) => (
+                          <Badge
+                            key={tagIndex}
+                            variant="outline"
+                            className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                          >
+                            #{tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     {getStatusBadge(task.status)}

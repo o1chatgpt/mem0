@@ -71,80 +71,80 @@ export default function AgentsPage() {
           <TabsTrigger value="grid">Grid View</TabsTrigger>
           <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
+      </Tabs>
 
-        <TabsContent value="grid">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {agents.map((agent) => (
-              <Card key={agent.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={agent.avatar_url || "/placeholder.svg"} alt={agent.name} />
-                      <AvatarFallback>{agent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <CardTitle>{agent.name}</CardTitle>
-                      <CardDescription>{agent.role}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-4">{agent.description || `Specializes in ${agent.specialty}`}</p>
-                  <div>
-                    <h3 className="mb-2 text-sm font-medium">Skills</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {agent.skills.slice(0, 3).map((skill, index) => (
-                        <Badge key={index} variant="outline">
-                          {skill}
-                        </Badge>
-                      ))}
-                      {agent.skills.length > 3 && <Badge variant="outline">+{agent.skills.length - 3} more</Badge>}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href={`/crew-ai/agents/${agent.id}`}>View Profile</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="list">
-          <div className="rounded-md border">
-            {agents.map((agent, index) => (
-              <div
-                key={agent.id}
-                className={`flex items-center justify-between p-4 ${index !== agents.length - 1 ? "border-b" : ""}`}
-              >
+      <TabsContent value="grid" className="mt-0">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {agents.map((agent) => (
+            <Card key={agent.id}>
+              <CardHeader>
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-12 w-12">
                     <AvatarImage src={agent.avatar_url || "/placeholder.svg"} alt={agent.name} />
                     <AvatarFallback>{agent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="font-medium">{agent.name}</h3>
-                    <p className="text-sm text-muted-foreground">{agent.role}</p>
+                    <CardTitle>{agent.name}</CardTitle>
+                    <CardDescription>{agent.role}</CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <Badge>{agent.specialty}</Badge>
-                  <div className="flex gap-2">
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={`/crew-ai/agents/${agent.id}`}>Profile</Link>
-                    </Button>
-                    <Button asChild size="sm">
-                      <Link href={`/ai-family/${agent.id}`}>Chat</Link>
-                    </Button>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4">{agent.description || `Specializes in ${agent.specialty}`}</p>
+                <div>
+                  <h3 className="mb-2 text-sm font-medium">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {agent.skills.slice(0, 3).map((skill, index) => (
+                      <Badge key={index} variant="outline">
+                        {skill}
+                      </Badge>
+                    ))}
+                    {agent.skills.length > 3 && <Badge variant="outline">+{agent.skills.length - 3} more</Badge>}
                   </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href={`/crew-ai/agents/${agent.id}`}>View Profile</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </TabsContent>
+
+      <TabsContent value="list" className="mt-0">
+        <div className="rounded-md border">
+          {agents.map((agent, index) => (
+            <div
+              key={agent.id}
+              className={`flex items-center justify-between p-4 ${index !== agents.length - 1 ? "border-b" : ""}`}
+            >
+              <div className="flex items-center gap-4">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={agent.avatar_url || "/placeholder.svg"} alt={agent.name} />
+                  <AvatarFallback>{agent.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-medium">{agent.name}</h3>
+                  <p className="text-sm text-muted-foreground">{agent.role}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+              <div className="flex items-center gap-4">
+                <Badge>{agent.specialty}</Badge>
+                <div className="flex gap-2">
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/crew-ai/agents/${agent.id}`}>Profile</Link>
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href={`/ai-family/${agent.id}`}>Chat</Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
     </div>
   )
 }
