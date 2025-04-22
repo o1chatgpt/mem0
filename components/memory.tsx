@@ -7,29 +7,22 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/components/ui/use-toast"
-import {
-  addMemoryWithEmbedding,
-  getMemories,
-  searchMemoriesBySimilarity,
-  type MemoryEntry,
-} from "@/services/vector-store"
+import { useMem0 } from "@/components/mem0-provider"
 
-export function Memory({ aiFamily }: { aiFamily: string }) {
-  const [memories, setMemories] = useState<MemoryEntry[]>([])
+export function Memory({ aiFamily, userId = "default_user" }: { aiFamily: string; userId?: string }) {
+  const [memories, setMemories] = useState<any[]>([])
   const [newMemory, setNewMemory] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSearching, setIsSearching] = useState(false)
+  const { addMemory, getMemories, searchMemories, isLoading } = useMem0()
   const { toast } = useToast()
 
   useEffect(() => {
     fetchMemories()
-  }, [aiFamily])
+  }, [aiFamily, userId])
 
   async function fetchMemories() {
-    setIsLoading(true)
     try {
-      const data = await getMemories(aiFamily)
+      const data = await getMemories(aiFamily, userId)
       setMemories(data)
     } catch (error) {
       console.error("Error fetching memories:", error)
@@ -38,21 +31,14 @@ export function Memory({ aiFamily }: { aiFamily: string }) {
         description: "Failed to load memories",
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
   async function handleAddMemory() {
     if (!newMemory.trim()) return
 
-    setIsLoading(true)
     try {
-      const success = await addMemoryWithEmbedding({
-        ai_family_member_id: aiFamily,
-        user_id: "00000000-0000-0000-0000-000000000000", // Default user ID
-        memory: newMemory,
-      })
+      const success = await addMemory(aiFamily, newMemory, userId)
 
       if (success) {
         setNewMemory("")
@@ -71,8 +57,6 @@ export function Memory({ aiFamily }: { aiFamily: string }) {
         description: "Failed to add memory",
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -82,18 +66,9 @@ export function Memory({ aiFamily }: { aiFamily: string }) {
       return
     }
 
-    setIsSearching(true)
     try {
-      if (searchQuery.length > 3) {
-        // Use vector similarity search for longer queries
-        const data = await searchMemoriesBySimilarity(aiFamily, searchQuery)
-        setMemories(data)
-      } else {
-        // Use simple text search for short queries
-        const data = await getMemories(aiFamily)
-        const filtered = data.filter((memory) => memory.memory.toLowerCase().includes(searchQuery.toLowerCase()))
-        setMemories(filtered)
-      }
+      const data = await searchMemories(aiFamily, searchQuery, userId)
+      setMemories(data)
     } catch (error) {
       console.error("Error searching memories:", error)
       toast({
@@ -101,8 +76,6 @@ export function Memory({ aiFamily }: { aiFamily: string }) {
         description: "Failed to search memories",
         variant: "destructive",
       })
-    } finally {
-      setIsSearching(false)
     }
   }
 
@@ -122,8 +95,8 @@ export function Memory({ aiFamily }: { aiFamily: string }) {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
-          <Button onClick={handleSearch} disabled={isSearching}>
-            {isSearching ? "Searching..." : "Search"}
+          <Button onClick={handleSearch} disabled={isLoading}>
+            {isLoading ? "Searching..." : "Search"}
           </Button>
         </div>
         <div className="flex-grow overflow-hidden">

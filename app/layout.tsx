@@ -6,8 +6,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "File Manager",
-  description: "A file management system with AI capabilities",
+  title: "Mem0 Integration Demo",
+  description: "A demonstration of Mem0 integration for long-term AI memory",
     generator: 'v0.dev'
 }
 

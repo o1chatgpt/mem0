@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   CreditCard,
-  Smartphone,
+  Briefcase,
+  Brain,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -30,22 +31,21 @@ const sidebarItems = [
     title: "AI Family",
     href: "/ai-family",
     icon: Users,
-    subItems: [
-      {
-        title: "Mem0",
-        href: "/ai-family/mem0",
-      },
-      {
-        title: "Responsive Preferences",
-        href: "/ai-family/mem0/responsive-preferences",
-        icon: Smartphone,
-      },
-    ],
+  },
+  {
+    title: "Mem0 Chat",
+    href: "/mem0-chat",
+    icon: Brain,
   },
   {
     title: "Cards",
     href: "/cards",
     icon: CreditCard,
+  },
+  {
+    title: "CrewAI",
+    href: "/crew-ai",
+    icon: Briefcase,
   },
   {
     title: "Tools",
@@ -77,16 +77,6 @@ const sidebarItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({
-    "/ai-family": true, // Default expanded state for AI Family
-  })
-
-  const toggleExpanded = (href: string) => {
-    setExpandedItems((prev) => ({
-      ...prev,
-      [href]: !prev[href],
-    }))
-  }
 
   return (
     <>
@@ -120,46 +110,17 @@ export function Sidebar() {
           <div className="px-3 py-4">
             <nav className="flex flex-col gap-1">
               {sidebarItems.map((item) => (
-                <div key={item.href}>
-                  <Button
-                    variant={pathname === item.href || pathname?.startsWith(`${item.href}/`) ? "secondary" : "ghost"}
-                    className="justify-start w-full"
-                    onClick={() => item.subItems && toggleExpanded(item.href)}
-                    asChild={!item.subItems}
-                  >
-                    {item.subItems ? (
-                      <div className="flex w-full cursor-pointer items-center">
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {item.title}
-                        <span className="ml-auto">{expandedItems[item.href] ? "−" : "+"}</span>
-                      </div>
-                    ) : (
-                      <Link href={item.href}>
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {item.title}
-                      </Link>
-                    )}
-                  </Button>
-
-                  {/* Sub-items */}
-                  {item.subItems && expandedItems[item.href] && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {item.subItems.map((subItem) => (
-                        <Button
-                          key={subItem.href}
-                          variant={pathname === item.href + subItem.href ? "secondary" : "ghost"}
-                          className="justify-start w-full pl-6"
-                          asChild
-                        >
-                          <Link href={subItem.href}>
-                            {subItem.icon && <subItem.icon className="mr-2 h-4 w-4" />}
-                            {subItem.title}
-                          </Link>
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <Button
+                  key={item.href}
+                  variant={pathname === item.href || pathname?.startsWith(`${item.href}/`) ? "secondary" : "ghost"}
+                  className="justify-start"
+                  asChild
+                >
+                  <Link href={item.href}>
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Link>
+                </Button>
               ))}
             </nav>
           </div>
