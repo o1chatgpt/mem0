@@ -10,7 +10,18 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { SimpleMarkdownRenderer } from "@/components/simple-markdown-renderer"
-import { ArrowLeft, CheckCircle2, Clock, AlertCircle, ArrowRightLeft, Play, Trash, ArrowRight } from "lucide-react"
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  ArrowRightLeft,
+  Play,
+  Trash,
+  ArrowRight,
+  Plus,
+  X,
+} from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +33,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export default function TaskDetailPage() {
   const params = useParams()
@@ -39,15 +51,18 @@ export default function TaskDetailPage() {
     executeTaskWithAgent,
   } = useCrewAI()
 
-  // Add tag state variables after the existing state variables
   const [handoffReason, setHandoffReason] = useState("")
   const [selectedAgentId, setSelectedAgentId] = useState("")
   const [executionResult, setExecutionResult] = useState<string | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [isHandingOff, setIsHandingOff] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Tag management state
   const [tagInput, setTagInput] = useState("")
   const [isAddingTag, setIsAddingTag] = useState(false)
+  const [isTagPopoverOpen, setIsTagPopoverOpen] = useState(false)
+  const [allTags, setAllTags] = useState<string[]>([])
 
   const id = typeof params.id === "string" ? params.id : ""
 
@@ -56,6 +71,17 @@ export default function TaskDetailPage() {
       selectTask(id)
     }
   }, [id, selectTask, tasks])
+
+  // Collect all unique tags from all tasks for suggestions
+  useEffect(() => {
+    const uniqueTags = new Set<string>()
+    tasks.forEach((task) => {
+      if (task.tags && task.tags.length > 0) {
+        task.tags.forEach((tag) => uniqueTags.add(tag))
+      }
+    })
+    setAllTags(Array.from(uniqueTags).sort())
+  }, [tasks])
 
   // Get status badge
   const getStatusBadge = (status: string) => {
@@ -143,7 +169,7 @@ export default function TaskDetailPage() {
     }
   }
 
-  // Add a function to add a tag to the task
+  // Add a tag to the task
   const handleAddTag = async () => {
     if (!tagInput.trim() || !selectedTask) return
 
@@ -157,6 +183,7 @@ export default function TaskDetailPage() {
         const updatedTags = [...currentTags, tagInput.trim()]
         await updateExistingTask(selectedTask.id!, { tags: updatedTags })
         setTagInput("")
+        setIsTagPopoverOpen(false)
       }
     } catch (error) {
       console.error("Error adding tag:", error)
@@ -165,7 +192,28 @@ export default function TaskDetailPage() {
     }
   }
 
-  // Add a function to remove a tag from the task
+  // Add a suggested tag
+  const handleAddSuggestedTag = async (tag: string) => {
+    if (!selectedTask) return
+
+    setIsAddingTag(true)
+    try {
+      // Get current tags or empty array if none
+      const currentTags = selectedTask.tags || []
+
+      // Only add if the tag doesn't already exist
+      if (!currentTags.includes(tag)) {
+        const updatedTags = [...currentTags, tag]
+        await updateExistingTask(selectedTask.id!, { tags: updatedTags })
+      }
+    } catch (error) {
+      console.error("Error adding suggested tag:", error)
+    } finally {
+      setIsAddingTag(false)
+    }
+  }
+
+  // Remove a tag from the task
   const handleRemoveTag = async (tagToRemove: string) => {
     if (!selectedTask || !selectedTask.tags) return
 
@@ -175,6 +223,12 @@ export default function TaskDetailPage() {
     } catch (error) {
       console.error("Error removing tag:", error)
     }
+  }
+
+  // Get suggested tags (excluding already added tags)
+  const getSuggestedTags = () => {
+    if (!selectedTask || !selectedTask.tags) return allTags
+    return allTags.filter((tag) => !selectedTask.tags?.includes(tag))
   }
 
   if (loading) {
@@ -208,6 +262,7 @@ export default function TaskDetailPage() {
   }
 
   const assignedAgent = agents.find((agent) => agent.id === selectedTask.assigned_to)
+  const suggestedTags = getSuggestedTags()
 
   return (
     <div className="container mx-auto py-8">
@@ -277,28 +332,79 @@ export default function TaskDetailPage() {
                   </div>
                 )}
 
-                {selectedTask.tags && selectedTask.tags.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Tags</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTask.tags.map((tag, index) => (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-medium">Tags</h3>
+                    <Popover open={isTagPopoverOpen} onOpenChange={setIsTagPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 px-2">
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add Tag
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80" align="end">
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium text-sm mb-2">Add New Tag</h4>
+                            <div className="flex gap-2">
+                              <Input
+                                placeholder="Enter tag name"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
+                                className="flex-1"
+                              />
+                              <Button onClick={handleAddTag} disabled={isAddingTag || !tagInput.trim()} size="sm">
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+
+                          {suggestedTags.length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-sm mb-2">Suggested Tags</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {suggestedTags.map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="outline"
+                                    className="cursor-pointer hover:bg-secondary"
+                                    onClick={() => handleAddSuggestedTag(tag)}
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.tags && selectedTask.tags.length > 0 ? (
+                      selectedTask.tags.map((tag, index) => (
                         <Badge
                           key={index}
-                          className="flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                          className="flex items-center gap-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
                         >
                           #{tag}
                           <button
                             type="button"
-                            className="ml-1 rounded-full h-4 w-4 inline-flex items-center justify-center text-xs"
+                            className="ml-1 rounded-full h-4 w-4 inline-flex items-center justify-center text-xs hover:bg-blue-200 dark:hover:bg-blue-800"
                             onClick={() => handleRemoveTag(tag)}
+                            aria-label={`Remove ${tag} tag`}
                           >
-                            ×
+                            <X className="h-3 w-3" />
                           </button>
                         </Badge>
-                      ))}
-                    </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No tags added yet</p>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {selectedTask.handoff_reason && (
                   <div>
@@ -392,7 +498,7 @@ export default function TaskDetailPage() {
                   )}
 
                   <div>
-                    <h3 className="text-sm font-medium mb-2">Add Tag</h3>
+                    <h3 className="text-sm font-medium mb-2">Manage Tags</h3>
                     <div className="flex gap-2">
                       <Input
                         placeholder="Add a tag (e.g., urgent, frontend, bug)"
@@ -404,6 +510,24 @@ export default function TaskDetailPage() {
                         {isAddingTag ? "Adding..." : "Add"}
                       </Button>
                     </div>
+
+                    {suggestedTags.length > 0 && (
+                      <div className="mt-2">
+                        <h4 className="text-xs font-medium mb-1">Suggested Tags</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {suggestedTags.slice(0, 5).map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="cursor-pointer hover:bg-secondary"
+                              onClick={() => handleAddSuggestedTag(tag)}
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -513,6 +637,20 @@ export default function TaskDetailPage() {
                     <p className="text-sm">{new Date(selectedTask.updated_at).toLocaleString()}</p>
                   </div>
                 )}
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.tags && selectedTask.tags.length > 0 ? (
+                      selectedTask.tags.map((tag, index) => (
+                        <Badge key={index} className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                          #{tag}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No tags</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
