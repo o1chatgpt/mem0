@@ -1,4 +1,9 @@
-import { executeSql, tableExists } from "@/lib/db-utils"
+import { createClient } from "@supabase/supabase-js"
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
  * Ensures that the migrations table exists
@@ -7,15 +12,13 @@ import { executeSql, tableExists } from "@/lib/db-utils"
 export async function ensureMigrationsTable(): Promise<boolean> {
   try {
     // Check if the migrations table exists
-    const exists = await tableExists("schema_migrations")
+    const { error: checkError } = await supabase.from("schema_migrations").select("*", { head: true }).limit(1)
 
     // If the table already exists, return true
-    if (exists) {
+    if (!checkError) {
       console.log("Migrations table already exists")
       return true
     }
-
-    console.log("Migrations table does not exist, creating it...")
 
     // Create the migrations table
     const createMigrationsTableQuery = `
@@ -30,10 +33,10 @@ export async function ensureMigrationsTable(): Promise<boolean> {
     `
 
     // Execute the SQL query directly
-    const success = await executeSql(createMigrationsTableQuery)
+    const { error } = await supabase.rpc("exec_sql", { sql_string: createMigrationsTableQuery })
 
-    if (!success) {
-      console.error("Failed to create migrations table")
+    if (error) {
+      console.error("Error creating migrations table:", error)
       return false
     }
 

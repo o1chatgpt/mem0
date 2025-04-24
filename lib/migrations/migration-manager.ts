@@ -1,7 +1,11 @@
-import { supabase } from "@/lib/db-utils"
+import { createClient } from "@supabase/supabase-js"
 import { ensureMigrationsTable } from "./ensure-migrations-table"
 import crypto from "crypto"
-import { executeSql, tableExists } from "@/lib/db-utils"
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 export interface Migration {
   name: string
@@ -28,13 +32,6 @@ function calculateChecksum(sql: string): string {
  */
 export async function getAppliedMigrations(): Promise<string[]> {
   try {
-    // Check if the migrations table exists
-    const exists = await tableExists("schema_migrations")
-    if (!exists) {
-      console.log("Migrations table does not exist, no applied migrations")
-      return []
-    }
-
     const { data, error } = await supabase
       .from("schema_migrations")
       .select("name")
@@ -59,26 +56,16 @@ export async function runMigration(migration: Migration): Promise<MigrationResul
   const startTime = Date.now()
   try {
     // Execute the SQL query
-    const success = await executeSql(migration.sql)
+    const { error } = await supabase.rpc("exec_sql", { sql_string: migration.sql })
 
     const executionTime = Date.now() - startTime
 
-    if (!success) {
+    if (error) {
+      console.error(`Error running migration ${migration.name}:`, error)
       return {
         name: migration.name,
         success: false,
-        error: "Failed to execute migration SQL",
-        executionTime,
-      }
-    }
-
-    // Ensure migrations table exists before recording the migration
-    const tableExists = await ensureMigrationsTable()
-    if (!tableExists) {
-      return {
-        name: migration.name,
-        success: false,
-        error: "Migration executed but failed to create migrations table",
+        error: error.message,
         executionTime,
       }
     }
@@ -186,12 +173,9 @@ export async function getMigrationStatus(migrations: Migration[]): Promise<
   }[]
 > {
   try {
-    // Check if the migrations table exists
-    const exists = await tableExists("schema_migrations")
-
-    // If the table doesn't exist, return all migrations as not applied
-    if (!exists) {
-      console.log("Migrations table doesn't exist, returning all migrations as not applied")
+    // Ensure migrations table exists
+    const tableExists = await ensureMigrationsTable()
+    if (!tableExists) {
       return migrations.map((migration) => ({
         name: migration.name,
         applied: false,
@@ -203,7 +187,6 @@ export async function getMigrationStatus(migrations: Migration[]): Promise<
 
     if (error) {
       console.error("Error fetching migration status:", error)
-      // Return all migrations as not applied if there's an error
       return migrations.map((migration) => ({
         name: migration.name,
         applied: false,
@@ -221,7 +204,6 @@ export async function getMigrationStatus(migrations: Migration[]): Promise<
     }))
   } catch (error) {
     console.error("Error in getMigrationStatus:", error)
-    // Return all migrations as not applied if there's an error
     return migrations.map((migration) => ({
       name: migration.name,
       applied: false,

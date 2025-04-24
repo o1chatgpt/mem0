@@ -110,13 +110,7 @@ export async function POST(req: Request) {
     // Try to fetch relevant memories using vector similarity search
     try {
       if (lastUserMessage) {
-        try {
-          memories = await searchMemoriesBySimilarity(aiFamily, lastUserMessage, 5)
-        } catch (searchError) {
-          console.error("Error in vector similarity search:", searchError)
-          // Continue with empty memories array
-          memories = []
-        }
+        memories = await searchMemoriesBySimilarity(aiFamily, lastUserMessage, 5)
       }
 
       // If no memories found with vector search, fall back to regular fetch
@@ -144,8 +138,6 @@ export async function POST(req: Request) {
         memories = data || []
       } catch (fallbackError) {
         console.error("Error in fallback memories fetch:", fallbackError)
-        // Ensure memories is at least an empty array
-        memories = []
       }
     }
 

@@ -35,7 +35,6 @@ export function AiChatInterface({ assistant }: AiChatInterfaceProps) {
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="memories">Memories</TabsTrigger>
       </TabsList>
-
       <TabsContent value="chat" className="h-[calc(100%-40px)]">
         <Card className="h-full flex flex-col">
           <CardHeader>
@@ -87,7 +86,6 @@ export function AiChatInterface({ assistant }: AiChatInterfaceProps) {
           </CardFooter>
         </Card>
       </TabsContent>
-
       <TabsContent value="memories" className="h-[calc(100%-40px)]">
         <Memory aiFamily={assistant.id} />
       </TabsContent>

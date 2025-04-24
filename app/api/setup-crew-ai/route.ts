@@ -1,52 +1,9 @@
 import { NextResponse } from "next/server"
 import { runMigrations } from "@/lib/migrations/migration-manager"
 import { migrations } from "@/lib/migrations/migrations"
-import { executeSql, tableExists } from "@/lib/db-utils"
 
 export async function GET() {
   try {
-    // First, create the exec_sql function if it doesn't exist
-    const createExecSqlFunction = `
-      CREATE OR REPLACE FUNCTION exec_sql(sql_string TEXT)
-      RETURNS VOID AS $$
-      BEGIN
-        EXECUTE sql_string;
-      END;
-      $$ LANGUAGE plpgsql SECURITY DEFINER;
-    `
-
-    // Try to create the exec_sql function
-    const execSqlCreated = await executeSql(createExecSqlFunction)
-    console.log("exec_sql function creation result:", execSqlCreated)
-
-    // Create the schema_migrations table if it doesn't exist
-    const migrationsTableExists = await tableExists("schema_migrations")
-    if (!migrationsTableExists) {
-      console.log("Creating schema_migrations table...")
-      const createMigrationsTableQuery = `
-        CREATE TABLE IF NOT EXISTS public.schema_migrations (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL UNIQUE,
-          applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          checksum VARCHAR(64) NOT NULL,
-          execution_time INTEGER NOT NULL,
-          success BOOLEAN NOT NULL
-        );
-      `
-      const migrationsTableCreated = await executeSql(createMigrationsTableQuery)
-      console.log("schema_migrations table creation result:", migrationsTableCreated)
-
-      if (!migrationsTableCreated) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Failed to create schema_migrations table",
-          },
-          { status: 500 },
-        )
-      }
-    }
-
     // Run all migrations
     const results = await runMigrations(migrations)
 

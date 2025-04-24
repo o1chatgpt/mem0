@@ -20,12 +20,6 @@ export interface MemoryEntry {
 // Function to create embeddings using OpenAI
 export async function createEmbedding(text: string): Promise<number[] | null> {
   try {
-    // Check if OpenAI API key exists
-    if (!process.env.OPENAI_API_KEY) {
-      console.error("OpenAI API key is missing")
-      return null
-    }
-
     const response = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: {
@@ -38,26 +32,7 @@ export async function createEmbedding(text: string): Promise<number[] | null> {
       }),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error("OpenAI API error:", response.status, errorData)
-      return null
-    }
-
     const data = await response.json()
-
-    // Validate the response structure
-    if (!data || !data.data || !Array.isArray(data.data) || data.data.length === 0) {
-      console.error("Unexpected API response structure:", data)
-      return null
-    }
-
-    // Check if embedding exists in the response
-    if (!data.data[0].embedding) {
-      console.error("No embedding found in API response:", data.data[0])
-      return null
-    }
-
     return data.data[0].embedding
   } catch (error) {
     console.error("Error creating embedding:", error)

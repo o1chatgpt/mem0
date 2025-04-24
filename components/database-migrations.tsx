@@ -4,10 +4,9 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Check, Database, Clock, ArrowUpCircle, AlertTriangle } from "lucide-react"
+import { Loader2, Check, Database, Clock, ArrowUpCircle } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface MigrationStatus {
   name: string
@@ -21,8 +20,6 @@ interface MigrationStatusResponse {
   totalMigrations: number
   appliedMigrations: number
   pendingMigrations: number
-  needsSetup?: boolean
-  message?: string
   error?: string
 }
 
@@ -39,7 +36,6 @@ export function DatabaseMigrations() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRunning, setIsRunning] = useState(false)
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatusResponse | null>(null)
-  const [needsSetup, setNeedsSetup] = useState(false)
   const { toast } = useToast()
 
   // Fetch migration status
@@ -47,41 +43,15 @@ export function DatabaseMigrations() {
     setIsLoading(true)
     try {
       const response = await fetch("/api/migrations/status")
-
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`)
-      }
-
       const data = await response.json()
-
-      // Check if setup is needed
-      if (data.needsSetup) {
-        setNeedsSetup(true)
-      } else {
-        setNeedsSetup(false)
-      }
-
       setMigrationStatus(data)
     } catch (error) {
       console.error("Error fetching migration status:", error)
       toast({
         title: "Error",
-        description: "Failed to fetch migration status. Database tables may need to be set up first.",
+        description: "Failed to fetch migration status",
         variant: "destructive",
       })
-
-      // Set a default migration status to avoid null errors
-      setMigrationStatus({
-        success: false,
-        migrations: [],
-        totalMigrations: 0,
-        appliedMigrations: 0,
-        pendingMigrations: 0,
-        needsSetup: true,
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
-
-      setNeedsSetup(true)
     } finally {
       setIsLoading(false)
     }
@@ -155,46 +125,6 @@ export function DatabaseMigrations() {
         <CardContent className="flex justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
-      </Card>
-    )
-  }
-
-  // If setup is needed, show a special card
-  if (needsSetup) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Database Setup Required
-          </CardTitle>
-          <CardDescription>The database migrations table needs to be set up</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert className="mb-4">
-            <AlertTitle>Database migrations table not found</AlertTitle>
-            <AlertDescription>
-              The database migrations table does not exist yet. This is normal if this is your first time using the
-              application.
-            </AlertDescription>
-          </Alert>
-          <p className="mb-4">Click the button below to set up the required database tables and run migrations.</p>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={runMigrations} disabled={isRunning}>
-            {isRunning ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Setting Up Database...
-              </>
-            ) : (
-              <>
-                <Database className="mr-2 h-4 w-4" />
-                Setup Database
-              </>
-            )}
-          </Button>
-        </CardFooter>
       </Card>
     )
   }
