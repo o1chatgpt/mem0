@@ -1,140 +1,416 @@
 "use client"
 
-import { useState } from "react"
-import { ImagePreview } from "@/components/image-preview"
+import { useState, useEffect } from "react"
 import {
-  FileIcon,
-  FileTextIcon,
+  FileText,
   ImageIcon,
-  VideoIcon,
-  FileAudioIcon as AudioIcon,
-  ArchiveIcon,
-  FileIcon as FileUnknownIcon,
+  FileSpreadsheet,
+  FileIcon,
+  Code,
+  Download,
+  Star,
+  Pencil,
+  Save,
+  X,
+  Tag,
+  Plus,
+  Share2,
+  AlertCircle,
+  FileCode,
 } from "lucide-react"
+import { useAppContext } from "@/lib/app-context"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
+import { ShareFileDialog } from "@/components/share-file-dialog"
+import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog"
+import { MarkdownEditor } from "@/components/markdown-editor"
+import { CodeEditor } from "@/components/code-editor"
 
-interface FileViewerProps {
-  fileUrl: string
-  fileName: string
-  mimeType: string
-  fileId?: number | string
-  fileSize?: number
-}
+export function FileViewer() {
+  const { selectedFile, selectedFileId, selectedFileIds, fileService, memoryStore, refreshFiles } = useAppContext()
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedContent, setEditedContent] = useState("")
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [fileTags, setFileTags] = useState<string[]>([])
+  const [newTag, setNewTag] = useState("")
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false)
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false)
 
-export function FileViewer({ fileUrl, fileName, mimeType, fileId, fileSize }: FileViewerProps) {
-  const [error, setError] = useState<string | null>(null)
+  // Load file tags when selected file changes
+  useEffect(() => {
+    const loadFileTags = async () => {
+      if (!selectedFileId) return
 
-  // Helper function to format file size
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return "Unknown size"
-
-    const units = ["B", "KB", "MB", "GB", "TB"]
-    let size = bytes
-    let unitIndex = 0
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024
-      unitIndex++
+      try {
+        const tags = await memoryStore.getFileTags(selectedFileId)
+        setFileTags(tags)
+      } catch (error) {
+        console.error("Error loading file tags:", error)
+      }
     }
 
-    return `${size.toFixed(1)} ${units[unitIndex]}`
-  }
+    loadFileTags()
+  }, [selectedFileId, memoryStore])
 
-  // Determine file type category
-  const getFileCategory = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return "image"
-    if (mimeType.startsWith("video/")) return "video"
-    if (mimeType.startsWith("audio/")) return "audio"
-    if (mimeType.startsWith("text/")) return "text"
-    if (mimeType.includes("pdf")) return "pdf"
-    if (mimeType.includes("zip") || mimeType.includes("compressed") || mimeType.includes("archive")) return "archive"
-    return "other"
-  }
+  const handleDownload = async () => {
+    if (!selectedFileId) return
 
-  const fileCategory = getFileCategory(mimeType)
-
-  // Render appropriate preview based on file type
-  const renderPreview = () => {
-    switch (fileCategory) {
-      case "image":
-        return <ImagePreview src={fileUrl || "/placeholder.svg"} alt={fileName} mimeType={mimeType} fileId={fileId} />
-
-      case "video":
-        return (
-          <div className="h-full flex items-center justify-center">
-            <video controls className="max-h-full max-w-full" onError={() => setError("Failed to load video")}>
-              <source src={fileUrl} type={mimeType} />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        )
-
-      case "audio":
-        return (
-          <div className="h-full flex flex-col items-center justify-center p-4">
-            <AudioIcon className="h-24 w-24 text-gray-400 mb-4" />
-            <p className="text-lg font-medium mb-4">{fileName}</p>
-            <audio controls className="w-full max-w-md" onError={() => setError("Failed to load audio")}>
-              <source src={fileUrl} type={mimeType} />
-              Your browser does not support the audio tag.
-            </audio>
-          </div>
-        )
-
-      case "pdf":
-        return (
-          <div className="h-full flex items-center justify-center">
-            <iframe src={`${fileUrl}#toolbar=0`} className="w-full h-full border-0" title={fileName} />
-          </div>
-        )
-
-      default:
-        // For other file types, show a generic preview with download option
-        return (
-          <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-            {renderFileIcon()}
-            <h3 className="text-lg font-medium mt-4 mb-2">{fileName}</h3>
-            <p className="text-sm text-gray-500 mb-4">{formatFileSize(fileSize)}</p>
-            <p className="text-sm text-gray-500 mb-6">This file type cannot be previewed</p>
-            <Button onClick={() => window.open(fileUrl, "_blank")} variant="outline">
-              Download File
-            </Button>
-          </div>
-        )
+    try {
+      await fileService.downloadFile(selectedFileId)
+    } catch (error) {
+      console.error("Error downloading file:", error)
     }
   }
 
-  // Render appropriate icon based on file type
-  const renderFileIcon = () => {
-    switch (fileCategory) {
-      case "image":
-        return <ImageIcon className="h-16 w-16 text-blue-500" />
-      case "video":
-        return <VideoIcon className="h-16 w-16 text-purple-500" />
-      case "audio":
-        return <AudioIcon className="h-16 w-16 text-green-500" />
-      case "text":
-        return <FileTextIcon className="h-16 w-16 text-yellow-500" />
-      case "archive":
-        return <ArchiveIcon className="h-16 w-16 text-orange-500" />
-      default:
-        return <FileIcon className="h-16 w-16 text-gray-500" />
+  const handleToggleFavorite = async () => {
+    if (!selectedFileId) return
+
+    try {
+      const newFavoriteStatus = await memoryStore.toggleFavorite(selectedFileId)
+      setIsFavorite(newFavoriteStatus)
+      await refreshFiles()
+    } catch (error) {
+      console.error("Error toggling favorite:", error)
     }
   }
 
-  // Show error if there's an issue
-  if (error) {
+  const handleStartEditing = () => {
+    if (!selectedFile || !selectedFile.content) return
+
+    setEditedContent(selectedFile.content)
+    setIsEditing(true)
+  }
+
+  const handleSaveEdits = async () => {
+    if (!selectedFileId) return
+
+    try {
+      await fileService.updateFile(selectedFileId, { content: editedContent })
+      setIsEditing(false)
+      await refreshFiles()
+    } catch (error) {
+      console.error("Error saving edits:", error)
+    }
+  }
+
+  const handleCancelEdits = () => {
+    setIsEditing(false)
+  }
+
+  const handleAddTag = async () => {
+    if (!selectedFileId || !newTag) return
+
+    try {
+      await memoryStore.rememberTag(selectedFileId, newTag)
+      const tags = await memoryStore.getFileTags(selectedFileId)
+      setFileTags(tags)
+      setNewTag("")
+    } catch (error) {
+      console.error("Error adding tag:", error)
+    }
+  }
+
+  const handleShare = () => {
+    setIsShareDialogOpen(true)
+  }
+
+  const handleSaveAsTemplate = () => {
+    setIsTemplateDialogOpen(true)
+  }
+
+  if (selectedFileIds.length > 1) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-        <FileUnknownIcon className="h-16 w-16 text-red-500 mb-4" />
-        <h3 className="text-lg font-medium mb-2">Preview Error</h3>
-        <p className="text-sm text-gray-500 mb-4">{error}</p>
-        <Button onClick={() => window.open(fileUrl, "_blank")} variant="outline">
-          Download File
-        </Button>
+      <div className="flex-1 flex items-center justify-center p-8 bg-muted/20">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-16 w-16 mx-auto text-primary" />
+          <h3 className="mt-4 text-lg font-medium">Multiple Files Selected</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {selectedFileIds.length} files are selected. Use the bulk actions bar above to perform operations on these
+            files.
+          </p>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Select a single file to view its contents, or use keyboard shortcuts:
+            <br />
+            <kbd className="px-1 py-0.5 text-xs border rounded mx-1">Ctrl/Cmd+Click</kbd> to toggle selection
+            <br />
+            <kbd className="px-1 py-0.5 text-xs border rounded mx-1">Shift+Click</kbd> to select a range
+            <br />
+            <kbd className="px-1 py-0.5 text-xs border rounded mx-1">Esc</kbd> to clear selection
+          </p>
+        </div>
       </div>
     )
   }
 
-  return <div className="w-full h-full min-h-[400px] bg-white rounded-md overflow-hidden">{renderPreview()}</div>
+  if (!selectedFileId || !selectedFile) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8 bg-muted/20">
+        <div className="text-center">
+          <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-medium">No file selected</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Select a file from the explorer to view its contents</p>
+        </div>
+      </div>
+    )
+  }
+
+  const getFileIcon = () => {
+    switch (selectedFile.type) {
+      case "text":
+        return <FileText className="h-6 w-6" />
+      case "image":
+        return <ImageIcon className="h-6 w-6 text-blue-500" />
+      case "spreadsheet":
+        return <FileSpreadsheet className="h-6 w-6 text-green-500" />
+      case "presentation":
+        return <FileIcon className="h-6 w-6 text-orange-500" />
+      case "code":
+        return <Code className="h-6 w-6 text-purple-500" />
+      case "pdf":
+        return <FileIcon className="h-6 w-6 text-red-500" />
+      case "video":
+        return <FileIcon className="h-6 w-6 text-pink-500" />
+      case "audio":
+        return <FileIcon className="h-6 w-6 text-yellow-500" />
+      case "markdown":
+        return <FileText className="h-6 w-6 text-teal-500" />
+      default:
+        return <FileText className="h-6 w-6" />
+    }
+  }
+
+  const renderFileContent = () => {
+    if (isEditing) {
+      if (selectedFile.type === "markdown" || selectedFile.name.endsWith(".md")) {
+        return (
+          <MarkdownEditor
+            content={editedContent}
+            onChange={setEditedContent}
+            onSave={handleSaveEdits}
+            onCancel={handleCancelEdits}
+          />
+        )
+      } else if (
+        ["html", "css", "js", "code"].includes(selectedFile.type) ||
+        selectedFile.name.match(/\.(html|htm|css|js|jsx|ts|tsx)$/)
+      ) {
+        return (
+          <CodeEditor
+            content={editedContent}
+            fileName={selectedFile.name}
+            onChange={setEditedContent}
+            onSave={handleSaveEdits}
+            onCancel={handleCancelEdits}
+          />
+        )
+      }
+
+      return (
+        <Textarea
+          value={editedContent}
+          onChange={(e) => setEditedContent(e.target.value)}
+          className="min-h-[300px] font-mono"
+        />
+      )
+    }
+
+    if (selectedFile.type === "image" && selectedFile.url) {
+      return (
+        <div className="flex justify-center">
+          <Image
+            src={selectedFile.url || "/placeholder.svg"}
+            alt={selectedFile.name}
+            width={500}
+            height={300}
+            className="max-w-full object-contain"
+          />
+        </div>
+      )
+    }
+
+    if (selectedFile.type === "video" && selectedFile.url) {
+      return (
+        <div className="flex justify-center">
+          <video controls className="max-w-full">
+            <source src={selectedFile.url} />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      )
+    }
+
+    if (selectedFile.type === "audio" && selectedFile.url) {
+      return (
+        <div className="flex justify-center">
+          <audio controls className="w-full">
+            <source src={selectedFile.url} />
+            Your browser does not support the audio tag.
+          </audio>
+        </div>
+      )
+    }
+
+    if (selectedFile.type === "markdown" && selectedFile.content) {
+      // Simple markdown rendering
+      const html = selectedFile.content
+        .replace(/^# (.*$)/gm, "<h1>$1</h1>")
+        .replace(/^## (.*$)/gm, "<h2>$1</h2>")
+        .replace(/^### (.*$)/gm, "<h3>$1</h3>")
+        .replace(/\*\*(.*)\*\*/gm, "<strong>$1</strong>")
+        .replace(/\*(.*)\*/gm, "<em>$1</em>")
+        .replace(/\n/gm, "<br>")
+        .replace(/!\[(.*?)\]$$(.*?)$$/gm, '<img alt="$1" src="$2" style="max-width: 100%;">')
+        .replace(/\[(.*?)\]$$(.*?)$$/gm, '<a href="$2" target="_blank">$1</a>')
+        .replace(/```([\s\S]*?)```/gm, "<pre><code>$1</code></pre>")
+        .replace(/`([^`]+)`/gm, "<code>$1</code>")
+        .replace(/^> (.*$)/gm, "<blockquote>$1</blockquote>")
+        .replace(
+          /- \[(x| )\] (.*$)/gm,
+          (match, checked, text) =>
+            `<div><input type="checkbox" ${checked === "x" ? "checked" : ""} disabled /> ${text}</div>`,
+        )
+        .replace(/^- (.*$)/gm, "<li>$1</li>")
+        .replace(/^[0-9]+\. (.*$)/gm, "<li>$1</li>")
+
+      return <div className="prose max-w-full" dangerouslySetInnerHTML={{ __html: html }} />
+    }
+
+    // For HTML files, render in an iframe
+    if (
+      (selectedFile.type === "html" || selectedFile.name.endsWith(".html") || selectedFile.name.endsWith(".htm")) &&
+      selectedFile.content
+    ) {
+      return (
+        <div className="h-full">
+          <iframe
+            srcDoc={selectedFile.content}
+            title={selectedFile.name}
+            className="w-full h-full border rounded"
+            sandbox="allow-scripts"
+          />
+        </div>
+      )
+    }
+
+    return (
+      <pre className={selectedFile.type === "code" ? "text-sm" : ""}>
+        {selectedFile.content || "No content available"}
+      </pre>
+    )
+  }
+
+  const canEdit =
+    ["text", "markdown", "code", "json", "xml", "yaml", "yml", "css", "html", "htm", "js", "jsx", "ts", "tsx"].includes(
+      selectedFile.type,
+    ) || selectedFile.name.match(/\.(md|txt|json|xml|yaml|yml|css|html|htm|js|jsx|ts|tsx)$/)
+
+  const canSaveAsTemplate = canEdit && selectedFile.content
+
+  return (
+    <div className="flex-1 p-6 overflow-auto">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center">
+          {getFileIcon()}
+          <h2 className="ml-2 text-xl font-semibold">{selectedFile.name}</h2>
+        </div>
+
+        <div className="flex space-x-2">
+          {isEditing ? (
+            <>
+              <Button size="sm" variant="outline" onClick={handleSaveEdits}>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCancelEdits}>
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={handleStartEditing}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button size="sm" variant={isFavorite ? "default" : "outline"} onClick={handleToggleFavorite}>
+                <Star className={`h-4 w-4 mr-2 ${isFavorite ? "text-yellow-400 fill-yellow-400" : ""}`} />
+                {isFavorite ? "Favorited" : "Favorite"}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+              {canSaveAsTemplate && (
+                <Button size="sm" variant="outline" onClick={handleSaveAsTemplate}>
+                  <FileCode className="h-4 w-4 mr-2" />
+                  Save as Template
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center text-sm text-muted-foreground mb-4">
+        <span className="mr-4">Size: {selectedFile.size}</span>
+        <span className="mr-4">Last modified: {selectedFile.lastModified}</span>
+        <span>Type: {selectedFile.type}</span>
+      </div>
+
+      <div className="mb-4 flex items-center">
+        <Tag className="h-4 w-4 mr-2" />
+        <span className="text-sm font-medium mr-2">Tags:</span>
+        <div className="flex flex-wrap gap-2">
+          {fileTags.map((tag, index) => (
+            <Badge key={index} variant="outline">
+              {tag}
+            </Badge>
+          ))}
+          <div className="flex items-center">
+            <Input
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              className="h-6 w-24 text-xs"
+              placeholder="Add tag"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleAddTag()
+                }
+              }}
+            />
+            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleAddTag}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className={`p-4 rounded-md ${selectedFile.type === "code" ? "bg-muted font-mono" : "bg-muted/20"}`}>
+        {renderFileContent()}
+      </div>
+
+      <ShareFileDialog isOpen={isShareDialogOpen} onClose={() => setIsShareDialogOpen(false)} />
+
+      {/* Add the SaveAsTemplateDialog */}
+      {selectedFile && (
+        <SaveAsTemplateDialog
+          isOpen={isTemplateDialogOpen}
+          onClose={() => setIsTemplateDialogOpen(false)}
+          fileName={selectedFile.name}
+          fileContent={selectedFile.content || ""}
+        />
+      )}
+    </div>
+  )
 }
+
+export default FileViewer

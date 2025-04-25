@@ -1,96 +1,162 @@
-# AI Family Toolkit
+# File Manager with Mem0 - Web Scraper Integration
 
-A comprehensive platform for managing AI assistants, workflows, and content generation through an immersive chat interface.
+This document outlines the steps to integrate a web scraper into the File Manager with Mem0 application. We will use CrewAI and a suitable web scraping library to achieve this.
 
 ## Overview
 
-The AI Family Toolkit is a Next.js application that provides a unified interface for interacting with AI assistants, managing workflows, generating images, and analyzing documents. The system is designed to be primarily controlled through a powerful chat interface, allowing users to accomplish complex tasks through natural language.
+The goal is to enable users to extract content from websites and save it as files within the file manager. This involves:
 
-## Key Features
+1.  Setting up CrewAI for task orchestration.
+2.  Choosing and integrating a web scraping library (e.g., Cheerio, Puppeteer).
+3.  Creating a user interface for specifying the target URL and extraction parameters.
+4.  Implementing the scraping logic and file saving functionality.
 
-### 1. AI Family Members
+## Implementation Steps
 
-- **Specialized AI Assistants**: Each AI Family member has unique capabilities and specialties
-- **Immersive Chat Interface**: Interact with AI assistants through a rich chat experience
-- **File Upload & Analysis**: Share documents and images for AI analysis directly in chat
-- **Context-Aware Responses**: AI responses adapt based on conversation history and uploaded content
+### 1. Install Dependencies
 
-### 2. Workflow Management
+First, you need to install the necessary dependencies:
 
-- **Task Creation & Assignment**: Create tasks and assign them to AI Family members
-- **Workflow Organization**: Group related tasks into workflows
-- **Status Tracking**: Monitor progress of tasks and workflows
-- **Team View**: Visualize workload distribution across AI Family members
+\`\`\`bash
+npm install crewai cheerio
+\`\`\`
 
-### 3. Image Generation
+*   **crewai**: For orchestrating the scraping tasks.
+*   **cheerio**: A fast, flexible, and lean implementation of core jQuery designed specifically for the server.
 
-- **AI-Powered Image Creation**: Generate images from text prompts
-- **Customization Options**: Control image size, style, and other parameters
-- **Template Library**: Use pre-defined templates for common image types
-- **Gallery Management**: Save and organize generated images
+### 2. Set up CrewAI Agents and Tasks
 
-### 4. Document Analysis
+Create agents and tasks for the web scraping process. For example:
 
-- **File Upload Support**: Upload documents directly in chat
-- **Content Extraction**: AI automatically extracts and analyzes document content
-- **Image Analysis**: Process and interpret uploaded images
-- **Contextual Insights**: Receive AI insights based on document content
+\`\`\`javascript
+import { Crew, Agent, Task } from 'crewai';
+import cheerio from 'cheerio';
 
-## Using the Chat Interface
+// Agent for fetching the webpage content
+const fetchingAgent = new Agent({
+  name: 'Web Fetcher',
+  role: 'Fetches the content of a webpage',
+  goal: 'To retrieve the HTML content from a given URL',
+  backstory: 'An expert in making HTTP requests and retrieving web content.',
+  verbose: true,
+});
 
-The chat interface is the primary way to interact with the system. Here's how to use it effectively:
+// Agent for extracting information from the HTML
+const extractionAgent = new Agent({
+  name: 'Content Extractor',
+  role: 'Extracts specific information from HTML content',
+  goal: 'To identify and extract relevant data based on user instructions',
+  backstory: 'An expert in parsing HTML and extracting structured data.',
+  verbose: true,
+});
 
-### Basic Commands
+// Task for fetching the webpage
+const fetchingTask = new Task({
+  description: 'Fetch the HTML content from the specified URL.',
+  agent: fetchingAgent,
+});
 
-- **Create Task**: "Create a new task to research AI trends"
-- **Assign Task**: "Assign this task to Lyra"
-- **Generate Image**: "Generate an image of a futuristic city"
-- **Analyze Document**: Simply upload a document and ask questions about it
+// Task for extracting information
+const extractionTask = new Task({
+  description: 'Extract the required information from the HTML content based on user instructions.',
+  agent: extractionAgent,
+});
 
-### Advanced Workflows
+// Create a crew to manage the agents and tasks
+const crew = new Crew({
+  agents: [fetchingAgent, extractionAgent],
+  tasks: [fetchingTask, extractionTask],
+  verbose: true,
+});
+\`\`\`
 
-The chat interface supports complex workflows through natural language:
+### 3. Implement Web Scraping Logic
 
-1. **Multi-step Processes**: "Create a workflow for our blog post production"
-2. **Conditional Logic**: "If the research is complete, move to content creation"
-3. **Team Coordination**: "Have Stan review the code after Lyra analyzes the data"
+Use Cheerio to parse the HTML content and extract the required information:
 
-### Tips for Effective Chat Interaction
+\`\`\`javascript
+async function scrapeWebsite(url, extractionInstructions) {
+  try {
+    const response = await fetch(url);
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
-- **Be Specific**: Provide clear instructions for best results
-- **Use Context**: Reference previous messages or uploaded files
-- **Enhance Messages**: Use the "Enhance" button for more detailed AI responses
-- **Follow Suggestions**: Click on suggested prompts for common follow-up questions
+    // Example: Extract all the links from the webpage
+    const links = [];
+    $('a').each((i, el) => {
+      links.push($(el).attr('href'));
+    });
 
-## System Architecture
+    // Implement more sophisticated extraction logic based on extractionInstructions
+    return links;
+  } catch (error) {
+    console.error('Error scraping website:', error);
+    throw error;
+  }
+}
+\`\`\`
 
-The system is built on Next.js with a modular architecture:
+### 4. Create a User Interface
 
-- **Frontend**: React components with Tailwind CSS styling
-- **State Management**: React hooks and context for local state
-- **Data Storage**: Supabase for persistent storage
-- **AI Integration**: OpenAI API for chat, image generation, and document analysis
+Add a form to the UI where users can input the URL and extraction parameters. This form should:
 
-## Maintenance Guidelines
+*   Accept a URL.
+*   Allow users to specify what data to extract (e.g., specific CSS selectors, tags, or attributes).
 
-The chat integration is designed to be robust but requires careful maintenance:
+\`\`\`typescriptreact
+// Example UI component
+function WebScraperForm() {
+  const [url, setUrl] = useState('');
+  const [extractionInstructions, setExtractionInstructions] = useState('');
 
-1. **API Key Management**: Ensure OpenAI API keys are properly secured
-2. **Rate Limiting**: Monitor API usage to prevent exceeding limits
-3. **Error Handling**: Check logs for chat processing errors
-4. **Content Filtering**: Maintain appropriate content filters for generated content
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const results = await scrapeWebsite(url, extractionInstructions);
+      // Handle the results (e.g., save to a file)
+      console.log('Scraping results:', results);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
-## Development Setup
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        URL:
+        <input type="url" value={url} onChange={(e) => setUrl(e.target.value)} />
+      </label>
+      <label>
+        Extraction Instructions:
+        <textarea value={extractionInstructions} onChange={(e) => setExtractionInstructions(e.target.value)} />
+      </label>
+      <button type="submit">Scrape Website</button>
+    </form>
+  );
+}
+\`\`\`
 
-```bash
-# Install dependencies
-npm install
+### 5. Integrate with File Manager
 
-# Run development server
-npm run dev
+After extracting the data, save it as a file in the file manager. Use the existing file creation functionality to save the scraped content.
 
-# Build for production
-npm run build
+\`\`\`typescriptreact
+// Example of saving scraped data to a file
+async function saveScrapedData(filename, data) {
+  try {
+    await fileService.createFile(filename, JSON.stringify(data, null, 2));
+    console.log('Scraped data saved to file:', filename);
+  } catch (error) {
+    console.error('Error saving scraped data:', error);
+  }
+}
+\`\`\`
 
-# Start production server
-npm start
+## Notes
+
+*   This implementation provides a basic framework. You may need to adjust the code based on the specific requirements of your application.
+*   Error handling and input validation are crucial for a production-ready application.
+*   Consider using more advanced web scraping techniques (e.g., Puppeteer for handling JavaScript-heavy websites).
+*   Be respectful of websites' terms of service and robots.txt when scraping.
+
+This guide should help you integrate a web scraper into your File Manager with Mem0 application.

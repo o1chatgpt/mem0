@@ -1,54 +1,116 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertTriangle, Check, Copy, Eye, EyeOff, Key, Loader2, RefreshCw, Save, X } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { toast } from "@/components/ui/use-toast"
-
-interface ApiKey {
-  id: number
-  service: string
-  key: string
-  created_at: string
-  is_active: boolean
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Key, Plus, Trash2, Copy, RefreshCw, Calendar, Clock } from "lucide-react"
+import { apiKeyService, type ApiPartner } from "@/lib/api-key-service"
+import { useToast } from "@/components/ui/use-toast"
 
 export function ApiKeyManager() {
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showKey, setShowKey] = useState<Record<number, boolean>>({})
-  const [newKey, setNewKey] = useState("")
-  const [newService, setNewService] = useState("openai")
-  const [isAdding, setIsAdding] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
+  const [partners, setPartners] = useState<ApiPartner[]>([])
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newPartner, setNewPartner] = useState({
+    name: "",
+    apiKey: "",
+    permissions: [] as string[],
+    expiresAt: "",
+  })
+  const [loading, setLoading] = useState(false)
 
+  // Available permissions
+  const availablePermissions = [
+    { id: "files:read", label: "Read Files" },
+    { id: "files:write", label: "Write Files" },
+    { id: "files:delete", label: "Delete Files" },
+    { id: "files:share", label: "Share Files" },
+    { id: "api:access", label: "API Access" },
+    { id: "network:access", label: "Network Access" },
+  ]
+
+  // Load partners
   useEffect(() => {
-    fetchApiKeys()
+    loadPartners()
   }, [])
 
-  const fetchApiKeys = async () => {
-    setLoading(true)
+  const loadPartners = () => {
     try {
-      const response = await fetch("/api/api-keys", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch API keys")
-      }
-
-      const data = await response.json()
-      setApiKeys(data.keys || [])
+      const allPartners = apiKeyService.getAllPartners()
+      setPartners(allPartners)
     } catch (error) {
-      console.error("Error fetching API keys:", error)
+      console.error("Error loading API partners:", error)
       toast({
         title: "Error",
-        description: "Failed to load API keys",
+        description: "Failed to load API partners",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleGenerateApiKey = () => {
+    try {
+      const apiKey = apiKeyService.generateApiKey()
+      setNewPartner((prev) => ({ ...prev, apiKey }))
+    } catch (error) {
+      console.error("Error generating API key:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate API key",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleAddPartner = async () => {
+    if (!newPartner.name || !newPartner.apiKey) {
+      toast({
+        title: "Validation Error",
+        description: "Name and API key are required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const expiresAt = newPartner.expiresAt ? new Date(newPartner.expiresAt) : undefined
+
+      apiKeyService.addPartner({
+        name: newPartner.name,
+        apiKey: newPartner.apiKey,
+        permissions: newPartner.permissions,
+        expiresAt,
+      })
+
+      toast({
+        title: "Success",
+        description: "API partner added successfully",
+      })
+
+      // Reset form and close dialog
+      setNewPartner({
+        name: "",
+        apiKey: "",
+        permissions: [],
+        expiresAt: "",
+      })
+      setIsAddDialogOpen(false)
+
+      // Reload partners
+      loadPartners()
+    } catch (error) {
+      console.error("Error adding API partner:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add API partner",
         variant: "destructive",
       })
     } finally {
@@ -56,256 +118,237 @@ export function ApiKeyManager() {
     }
   }
 
-  const toggleShowKey = (id: number) => {
-    setShowKey((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }))
+  const handleDeletePartner = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this API partner?")) {
+      return
+    }
+
+    try {
+      const success = apiKeyService.deletePartner(id)
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: "API partner deleted successfully",
+        })
+
+        // Reload partners
+        loadPartners()
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete API partner",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting API partner:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete API partner",
+        variant: "destructive",
+      })
+    }
   }
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const handleCopyApiKey = (apiKey: string) => {
+    navigator.clipboard.writeText(apiKey)
+
     toast({
       title: "Copied",
       description: "API key copied to clipboard",
     })
   }
 
-  const handleAddKey = async () => {
-    if (!newKey || !newService) {
-      toast({
-        title: "Error",
-        description: "Please enter both a service name and API key",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      const response = await fetch("/api/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service: newService,
-          key: newKey,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to add API key")
-      }
-
-      const data = await response.json()
-      setApiKeys((prev) => [...prev, data.key])
-      setNewKey("")
-      setNewService("openai")
-      setIsAdding(false)
-      toast({
-        title: "Success",
-        description: "API key added successfully",
-      })
-    } catch (error) {
-      console.error("Error adding API key:", error)
-      toast({
-        title: "Error",
-        description: "Failed to add API key",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const toggleKeyStatus = async (id: number, currentStatus: boolean) => {
-    try {
-      const response = await fetch(`/api/api-keys/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          is_active: !currentStatus,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to update API key status")
-      }
-
-      const data = await response.json()
-      setApiKeys((prev) => prev.map((key) => (key.id === id ? { ...key, is_active: data.key.is_active } : key)))
-      toast({
-        title: "Success",
-        description: `API key ${data.key.is_active ? "activated" : "deactivated"} successfully`,
-      })
-    } catch (error) {
-      console.error("Error updating API key status:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update API key status",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const deleteKey = async (id: number) => {
-    try {
-      const response = await fetch(`/api/api-keys/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to delete API key")
-      }
-
-      setApiKeys((prev) => prev.filter((key) => key.id !== id))
-      toast({
-        title: "Success",
-        description: "API key deleted successfully",
-      })
-    } catch (error) {
-      console.error("Error deleting API key:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete API key",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const maskApiKey = (key: string) => {
-    if (key.length <= 8) return "••••••••"
-    return key.substring(0, 4) + "••••••••••••••••" + key.substring(key.length - 4)
+  const formatDate = (date?: Date) => {
+    if (!date) return "Never"
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString()
   }
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">API Key Management</h2>
+
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Partner
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Key className="mr-2 h-5 w-5" />
-            API Key Management
-          </CardTitle>
-          <CardDescription>Manage your API keys for external services</CardDescription>
+          <CardTitle>API Partners</CardTitle>
+          <CardDescription>Manage API keys for partners to access your file system</CardDescription>
         </CardHeader>
+
         <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {partners.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Key className="h-12 w-12 mx-auto mb-4" />
+              <p>No API partners found</p>
+              <p className="text-sm mt-2">Add a partner to generate an API key for external access</p>
             </div>
           ) : (
-            <>
-              {apiKeys.length === 0 && !isAdding ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>No API keys found. Add your first API key to get started.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {apiKeys.map((key) => (
-                    <div key={key.id} className="border rounded-md p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <div className="font-medium capitalize">{key.service}</div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant={key.is_active ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => toggleKeyStatus(key.id, key.is_active)}
-                          >
-                            {key.is_active ? <Check className="h-4 w-4 mr-1" /> : <X className="h-4 w-4 mr-1" />}
-                            {key.is_active ? "Active" : "Inactive"}
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => toggleShowKey(key.id)}>
-                            {showKey[key.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => copyToClipboard(key.key)}>
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button variant="destructive" size="icon" onClick={() => deleteKey(key.id)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="font-mono text-sm bg-muted p-2 rounded">
-                        {showKey[key.id] ? key.key : maskApiKey(key.key)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Added on {new Date(key.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>Permissions</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Usage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
 
-              {isAdding && (
-                <div className="border rounded-md p-4 mt-4">
-                  <h3 className="font-medium mb-2">Add New API Key</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="service">Service</Label>
-                      <select
-                        id="service"
-                        value={newService}
-                        onChange={(e) => setNewService(e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                      >
-                        <option value="openai">OpenAI</option>
-                        <option value="anthropic">Anthropic</option>
-                        <option value="google">Google AI</option>
-                        <option value="azure">Azure OpenAI</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label htmlFor="apiKey">API Key</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        value={newKey}
-                        onChange={(e) => setNewKey(e.target.value)}
-                        placeholder="Enter API key"
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-2">
-                      <Button variant="outline" onClick={() => setIsAdding(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleAddKey} disabled={isSaving}>
-                        {isSaving ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Save className="h-4 w-4 mr-2" />
+              <TableBody>
+                {partners.map((partner) => (
+                  <TableRow key={partner.id}>
+                    <TableCell className="font-medium">{partner.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                          {partner.apiKey?.substring(0, 8)}...{partner.apiKey?.substring(partner.apiKey.length - 8)}
+                        </code>
+                        <Button variant="ghost" size="icon" onClick={() => handleCopyApiKey(partner.apiKey)}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {partner.permissions.map((permission) => (
+                          <Badge key={permission} variant="outline" className="text-xs">
+                            {permission}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {partner.expiresAt ? (
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                          <span className="text-sm">{formatDate(partner.expiresAt)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Never</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="flex items-center">
+                          <RefreshCw className="h-4 w-4 mr-1 text-muted-foreground" />
+                          <span>{partner.usageCount} requests</span>
+                        </div>
+                        {partner.lastUsed && (
+                          <div className="flex items-center mt-1">
+                            <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              Last used: {formatDate(partner.lastUsed)}
+                            </span>
+                          </div>
                         )}
-                        Save
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleDeletePartner(partner.id)}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={fetchApiKeys}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          {!isAdding && (
-            <Button onClick={() => setIsAdding(true)}>
-              <Key className="h-4 w-4 mr-2" />
-              Add API Key
-            </Button>
-          )}
-        </CardFooter>
       </Card>
 
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Security Notice</AlertTitle>
-        <AlertDescription>
-          API keys are stored securely but should be treated as sensitive information. Never share your API keys with
-          others or expose them in client-side code.
-        </AlertDescription>
-      </Alert>
+      {/* Add Partner Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add API Partner</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Partner Name</Label>
+              <Input
+                id="name"
+                value={newPartner.name}
+                onChange={(e) => setNewPartner({ ...newPartner, name: e.target.value })}
+                placeholder="Enter partner name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">API Key</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="apiKey"
+                  value={newPartner.apiKey}
+                  onChange={(e) => setNewPartner({ ...newPartner, apiKey: e.target.value })}
+                  placeholder="Enter or generate API key"
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" onClick={handleGenerateApiKey}>
+                  Generate
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expiresAt">Expiration Date (Optional)</Label>
+              <Input
+                id="expiresAt"
+                type="datetime-local"
+                value={newPartner.expiresAt}
+                onChange={(e) => setNewPartner({ ...newPartner, expiresAt: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Permissions</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {availablePermissions.map((permission) => (
+                  <div key={permission.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`permission-${permission.id}`}
+                      checked={newPartner.permissions.includes(permission.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setNewPartner({
+                            ...newPartner,
+                            permissions: [...newPartner.permissions, permission.id],
+                          })
+                        } else {
+                          setNewPartner({
+                            ...newPartner,
+                            permissions: newPartner.permissions.filter((p) => p !== permission.id),
+                          })
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`permission-${permission.id}`} className="text-sm">
+                      {permission.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddPartner} disabled={loading}>
+              {loading ? "Adding..." : "Add Partner"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
