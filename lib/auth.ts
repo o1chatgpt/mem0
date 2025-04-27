@@ -1,105 +1,101 @@
-import { jwtVerify, SignJWT } from "jose"
-import { cookies } from "next/headers"
-import { type NextRequest, NextResponse } from "next/server"
-import { config } from "./config"
+import type { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { compare, hash } from "bcryptjs"
 
-// Secret key for JWT signing - in production, use a proper secret
-const SECRET_KEY = new TextEncoder().encode(config.serverApiKey || "default-secret-key")
+// In-memory user store for authentication
+// In a production environment, you would replace this with a database
+const users = [
+  {
+    id: "1",
+    name: "Admin User",
+    email: "gogiapandie@gmail.com",
+    // Hashed password for "!June1872"
+    password: "$2a$10$iqJSHD.BGr0E2IxQwYgJmeP3NvhPrXAeLSaGCj6IR/XU5QtjVu5Tm",
+    role: "admin",
+  },
+]
 
-export interface UserSession {
-  id: string
-  username: string
-  role: "admin" | "user"
-  exp?: number
+export const authOptions: NextAuthOptions = {
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            return null
+          }
+
+          const user = users.find((user) => user.email === credentials.email)
+          if (!user) {
+            return null
+          }
+
+          const isPasswordValid = await compare(credentials.password, user.password)
+          if (!isPasswordValid) {
+            return null
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          }
+        } catch (error) {
+          console.error("Authentication error:", error)
+          return null
+        }
+      },
+    }),
+  ],
+  pages: {
+    signIn: "/login",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+        token.id = user.id
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string
+        session.user.role = token.role as string
+      }
+      return session
+    },
+  },
+  session: {
+    strategy: "jwt",
+  },
+  debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET || "your-secret-key-change-in-production",
 }
 
-export async function signToken(payload: Omit<UserSession, "exp">): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d") // Extend to 7 days
-    .sign(SECRET_KEY)
-}
-
-export async function verifyToken(token: string): Promise<UserSession | null> {
+// Helper function to create a new user (for demonstration purposes)
+export async function createUser(name: string, email: string, password: string, role = "user") {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY)
-    return payload as UserSession
+    const hashedPassword = await hash(password, 10)
+    const id = (users.length + 1).toString()
+
+    const newUser = {
+      id,
+      name,
+      email,
+      password: hashedPassword,
+      role,
+    }
+
+    users.push(newUser)
+    return { id, name, email, role }
   } catch (error) {
-    console.error("Token verification failed:", error)
-    return null
+    console.error("Error creating user:", error)
+    throw new Error("Failed to create user")
   }
-}
-
-export async function getSession(): Promise<UserSession | null> {
-  const cookieStore = cookies()
-  const token = cookieStore.get("auth-token")?.value
-
-  if (!token) {
-    console.log("No auth token found in cookies")
-    return null
-  }
-
-  return verifyToken(token)
-}
-
-export function setAuthCookie(response: NextResponse, token: string): NextResponse {
-  response.cookies.set({
-    name: "auth-token",
-    value: token,
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: "/",
-  })
-
-  return response
-}
-
-export function removeAuthCookie(response: NextResponse): NextResponse {
-  response.cookies.set({
-    name: "auth-token",
-    value: "",
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 0,
-    path: "/",
-  })
-
-  return response
-}
-
-export async function requireAuth(request: NextRequest): Promise<UserSession | NextResponse> {
-  const cookieStore = cookies()
-  const token = cookieStore.get("auth-token")?.value
-
-  if (!token) {
-    console.log("No auth token found in cookies, redirecting to login")
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  const session = await verifyToken(token)
-  if (!session) {
-    console.log("Invalid auth token, redirecting to login")
-    return NextResponse.redirect(new URL("/login", request.url))
-  }
-
-  return session
-}
-
-export async function requireAdmin(request: NextRequest): Promise<UserSession | NextResponse> {
-  const result = await requireAuth(request)
-
-  if (result instanceof NextResponse) {
-    return result
-  }
-
-  if (result.role !== "admin") {
-    console.log("User is not an admin, redirecting to unauthorized")
-    return NextResponse.redirect(new URL("/unauthorized", request.url))
-  }
-
-  return result
 }

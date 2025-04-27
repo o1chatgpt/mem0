@@ -2,48 +2,20 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  // Public paths that don't require authentication
-  const publicPaths = [
-    "/login",
-    "/api/auth",
-    "/direct-entry", // Add the direct entry path as public
-  ]
-
-  const path = request.nextUrl.pathname
-
-  // Check if the path is public
-  if (publicPaths.some((publicPath) => path.startsWith(publicPath))) {
-    // If user is trying to access login page but is already authenticated, redirect to home
-    if (path === "/login") {
-      const bypassAuth = request.cookies.get("bypass-auth")?.value
-      const authToken = request.cookies.get("auth-token")?.value
-
-      if (bypassAuth === "admin-access-granted" || authToken) {
-        return NextResponse.redirect(new URL("/", request.url))
-      }
-    }
-
-    return NextResponse.next()
-  }
-
-  // Check for static assets
-  if (path.startsWith("/_next/") || path.includes(".")) {
-    return NextResponse.next()
-  }
-
-  // Check for either the bypass cookie or the regular auth token
-  const bypassAuth = request.cookies.get("bypass-auth")?.value
-  const authToken = request.cookies.get("auth-token")?.value
-
-  if (bypassAuth === "admin-access-granted" || authToken) {
-    // Allow access if either authentication method is present
-    return NextResponse.next()
-  }
-
-  // Redirect to login if no authentication is found
-  return NextResponse.redirect(new URL("/login", request.url))
+  // Disable all middleware redirects for now
+  return NextResponse.next()
 }
 
+// Configure which paths the middleware runs on
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all paths except:
+     * 1. /api/auth (NextAuth.js API routes)
+     * 2. /_next (Next.js internals)
+     * 3. /fonts, /images (static files)
+     * 4. /favicon.ico, /sitemap.xml (static files)
+     */
+    "/((?!_next|api/auth|fonts|images|favicon.ico|sitemap.xml).*)",
+  ],
 }
