@@ -1,13 +1,6 @@
-import { Suspense } from "react"
-import { HomeContent } from "@/components/home-content"
-import { ClientProvider } from "@/components/client-provider"
+import { redirect } from "next/navigation"
 
-export default function Home() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ClientProvider>
-        <HomeContent />
-      </ClientProvider>
-    </Suspense>
-  )
+export default function HomePage() {
+  // Redirect to the dashboard
+  redirect("/dashboard")
 }
