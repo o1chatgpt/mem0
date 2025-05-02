@@ -1,4 +1,5 @@
-import { FileIcon, BookMarkedIcon as MarkdownIcon, FileCode2, FileJson } from "lucide-react"
+import { FileIcon, BookMarkedIcon, FileCode2, FileJson } from "lucide-react"
+import type { ReactNode } from "react"
 
 export interface FileData {
   id: string
@@ -29,10 +30,10 @@ export function getFileLanguage(filename: string): "markdown" | "html" | "css" |
   }
 }
 
-export function getFileIcon(language: string) {
+export function getFileIcon(language: string): ReactNode {
   switch (language) {
     case "markdown":
-      return <MarkdownIcon className="h-4 w-4" />
+      return <BookMarkedIcon className="h-4 w-4" />
     case "html":
       return <FileCode2 className="h-4 w-4" />
     case "css":

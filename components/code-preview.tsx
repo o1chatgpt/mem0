@@ -1,136 +1,183 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Eye, Code, RefreshCw } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import type { FileData } from "@/lib/file-model"
-import { cn } from "@/lib/utils"
-import ReactMarkdown from "react-markdown"
+import { Skeleton } from "@/components/ui/skeleton"
+import dynamic from "next/dynamic"
+
+// Dynamically import markdown renderer
+const DynamicMarkdownRenderer = dynamic(() => import("@/components/simple-markdown-renderer"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+})
 
 interface CodePreviewProps {
   files: FileData[]
 }
 
 export function CodePreview({ files }: CodePreviewProps) {
-  const [previewMode, setPreviewMode] = useState<"combined" | "individual">("combined")
-  const [refreshKey, setRefreshKey] = useState(0)
+  const [activeTab, setActiveTab] = useState<string>("preview")
+  const [combinedHtml, setCombinedHtml] = useState<string>("")
+  const [isClient, setIsClient] = useState(false)
 
-  // Extract files by type
-  const htmlFile = files.find((file) => file.language === "html")
-  const cssFile = files.find((file) => file.language === "css")
-  const jsFile = files.find((file) => file.language === "javascript")
-  const mdFile = files.find((file) => file.language === "markdown")
+  // Set isClient to true once the component mounts
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
-  // Combined preview HTML
-  const combinedHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>${cssFile?.content || ""}</style>
-    </head>
-    <body>
-      ${htmlFile?.content || ""}
-      <script>${jsFile?.content || ""}</script>
-    </body>
-    </html>
-  `
+  // Combine HTML, CSS, and JavaScript files
+  useEffect(() => {
+    if (!isClient) return
 
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1)
+    const htmlFile = files.find((file) => file.language === "html")
+    const cssFiles = files.filter((file) => file.language === "css")
+    const jsFiles = files.filter((file) => file.language === "javascript")
+
+    const html = htmlFile?.content || "<div id='app'></div>"
+    const css = cssFiles.map((file) => file.content).join("\n")
+    const js = jsFiles.map((file) => file.content).join("\n")
+
+    const combined = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>${css}</style>
+      </head>
+      <body>
+        ${html}
+        <script>${js}</script>
+      </body>
+      </html>
+    `
+
+    setCombinedHtml(combined)
+  }, [files, isClient])
+
+  if (!isClient) {
+    return <Skeleton className="h-full w-full" />
   }
 
+  const markdownFiles = files.filter((file) => file.language === "markdown")
+  const htmlFiles = files.filter((file) => file.language === "html")
+  const cssFiles = files.filter((file) => file.language === "css")
+  const jsFiles = files.filter((file) => file.language === "javascript")
+
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex flex-row items-center justify-between py-2">
-        <CardTitle className="text-lg">Preview</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Refresh
-          </Button>
-          <Tabs value={previewMode} onValueChange={(value) => setPreviewMode(value as any)}>
-            <TabsList>
-              <TabsTrigger value="combined">
-                <Eye className="h-4 w-4 mr-1" />
-                Combined
-              </TabsTrigger>
-              <TabsTrigger value="individual">
-                <Code className="h-4 w-4 mr-1" />
-                Individual
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+    <div className="h-full flex flex-col border rounded-lg overflow-hidden">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <div className="border-b">
+          <TabsList className="h-10">
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            {markdownFiles.length > 0 && <TabsTrigger value="markdown">Markdown</TabsTrigger>}
+            {htmlFiles.length > 0 && <TabsTrigger value="html">HTML</TabsTrigger>}
+            {cssFiles.length > 0 && <TabsTrigger value="css">CSS</TabsTrigger>}
+            {jsFiles.length > 0 && <TabsTrigger value="javascript">JavaScript</TabsTrigger>}
+          </TabsList>
         </div>
-      </CardHeader>
 
-      <CardContent className="flex-1 p-0 overflow-auto">
-        <div className="h-full">
-          {previewMode === "combined" ? (
-            <div className="h-full">
-              {htmlFile || cssFile || jsFile ? (
-                <iframe
-                  key={refreshKey}
-                  srcDoc={combinedHTML}
-                  className="w-full h-full border-0"
-                  title="Preview"
-                  sandbox="allow-scripts"
-                />
-              ) : mdFile ? (
-                <div className="p-4 prose dark:prose-invert max-w-none">
-                  <ReactMarkdown>{mdFile.content}</ReactMarkdown>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  No preview available
-                </div>
-              )}
-            </div>
-          ) : (
-            <Tabs defaultValue={files.length > 0 ? files[0].id : undefined} className="h-full">
-              <TabsList className="border-b rounded-none w-full justify-start">
-                {files.map((file) => (
-                  <TabsTrigger key={file.id} value={file.id} className="rounded-none">
-                    {file.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+        <TabsContent value="preview" className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="p-4 flex-1 overflow-auto bg-white">
+            {files.length > 0 ? (
+              <iframe
+                srcDoc={combinedHtml}
+                title="Preview"
+                className="w-full h-full border-0"
+                sandbox="allow-scripts"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">No files to preview</div>
+            )}
+          </div>
+        </TabsContent>
 
-              {files.map((file) => (
-                <TabsContent key={file.id} value={file.id} className="h-[calc(100%-40px)] m-0">
-                  {file.language === "markdown" ? (
-                    <div className="p-4 prose dark:prose-invert max-w-none">
-                      <ReactMarkdown>{file.content}</ReactMarkdown>
+        <TabsContent value="markdown" className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="p-4 flex-1 overflow-auto">
+            {markdownFiles.length > 0 ? (
+              <Card>
+                <CardContent className="p-4">
+                  {markdownFiles.map((file) => (
+                    <div key={file.id} className="mb-6">
+                      <h3 className="text-sm font-medium mb-2">{file.name}</h3>
+                      <DynamicMarkdownRenderer content={file.content} />
                     </div>
-                  ) : file.language === "html" ? (
-                    <iframe
-                      key={`${file.id}-${refreshKey}`}
-                      srcDoc={file.content}
-                      className="w-full h-full border-0"
-                      title={file.name}
-                      sandbox="allow-scripts"
-                    />
-                  ) : (
-                    <pre
-                      className={cn(
-                        "p-4 overflow-auto h-full",
-                        file.language === "css" ? "language-css" : "language-javascript",
-                      )}
-                    >
-                      <code>{file.content}</code>
-                    </pre>
-                  )}
-                </TabsContent>
-              ))}
+                  ))}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No Markdown files to preview
+              </div>
+            )}
+          </div>
+        </TabsContent>
 
-              {files.length === 0 && (
-                <div className="flex items-center justify-center h-full text-muted-foreground">No files to preview</div>
-              )}
-            </Tabs>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        <TabsContent value="html" className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="p-4 flex-1 overflow-auto">
+            {htmlFiles.length > 0 ? (
+              htmlFiles.map((file) => (
+                <div key={file.id} className="mb-6">
+                  <h3 className="text-sm font-medium mb-2">{file.name}</h3>
+                  <iframe
+                    srcDoc={file.content}
+                    title={file.name}
+                    className="w-full h-[300px] border rounded"
+                    sandbox="allow-scripts"
+                  />
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No HTML files to preview
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="css" className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col">
+          <div className="p-4 flex-1 overflow-auto">
+            {cssFiles.length > 0 ? (
+              cssFiles.map((file) => (
+                <div key={file.id} className="mb-6">
+                  <h3 className="text-sm font-medium mb-2">{file.name}</h3>
+                  <pre className="p-4 bg-muted rounded-lg overflow-auto">
+                    <code>{file.content}</code>
+                  </pre>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No CSS files to preview
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="javascript"
+          className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col"
+        >
+          <div className="p-4 flex-1 overflow-auto">
+            {jsFiles.length > 0 ? (
+              jsFiles.map((file) => (
+                <div key={file.id} className="mb-6">
+                  <h3 className="text-sm font-medium mb-2">{file.name}</h3>
+                  <pre className="p-4 bg-muted rounded-lg overflow-auto">
+                    <code>{file.content}</code>
+                  </pre>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No JavaScript files to preview
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }
+
+export default CodePreview

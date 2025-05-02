@@ -4,17 +4,23 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { nanoid } from "nanoid"
+import dynamic from "next/dynamic"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { CodeEditor } from "@/components/code-editor"
-import { CodeFormatter } from "@/components/code-formatter"
+import { Skeleton } from "@/components/ui/skeleton"
 import { type FileData, getFileLanguage, getFileIcon } from "@/lib/file-model"
-import { saveFiles, loadFiles } from "@/lib/file-storage"
-import { Plus, X, Download, Upload, RefreshCw } from "lucide-react"
+import { Plus, X, Download, Upload, RefreshCw, Wand2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
-import { Toaster } from "@/components/ui/toaster"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/components/ui/use-toast"
+
+// Dynamically import CodeEditor to avoid SSR issues
+const DynamicCodeEditor = dynamic(() => import("./code-editor").then((mod) => ({ default: mod.CodeEditor })), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full" />,
+})
 
 interface TabbedEditorProps {
   files: FileData[]
@@ -26,35 +32,33 @@ export function TabbedEditor({ files, setFiles }: TabbedEditorProps) {
   const [newFileName, setNewFileName] = useState("")
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [isFormatting, setIsFormatting] = useState(false)
+  const { toast } = useToast()
+  const [fileStorage, setFileStorage] = useState<any>(null)
 
-  // Load files from local storage on first render
+  // Load file storage module after mount
   useEffect(() => {
-    const savedFiles = loadFiles()
-    if (savedFiles.length > 0) {
-      setFiles(savedFiles)
-      setActiveFileId(savedFiles[0].id)
-    } else {
-      // Create a welcome file if no saved files
-      const welcomeFile: FileData = {
-        id: nanoid(),
-        name: "welcome.md",
-        content:
-          "# Welcome to the Code Editor\n\nThis is a simple tabbed editor that supports:\n- Markdown\n- HTML\n- CSS\n- JavaScript\n\nCreate a new file to get started!",
-        language: "markdown",
-        lastModified: new Date(),
-      }
-      setFiles([welcomeFile])
-      setActiveFileId(welcomeFile.id)
+    import("@/lib/file-storage").then((module) => {
+      setFileStorage(module)
+    })
+  }, [])
+
+  // Set active file when files change
+  useEffect(() => {
+    if (files.length > 0 && !activeFileId) {
+      setActiveFileId(files[0].id)
+    } else if (files.length === 0) {
+      setActiveFileId(null)
     }
-  }, [setFiles])
+  }, [files, activeFileId])
 
   // Save files to local storage when they change
   useEffect(() => {
-    if (files.length > 0) {
-      saveFiles(files)
+    if (files.length > 0 && fileStorage) {
+      fileStorage.saveFiles(files)
       setLastSaved(new Date())
     }
-  }, [files])
+  }, [files, fileStorage])
 
   const activeFile = files.find((file) => file.id === activeFileId)
 
@@ -127,9 +131,72 @@ export function TabbedEditor({ files, setFiles }: TabbedEditorProps) {
     event.target.value = ""
   }
 
-  const handleFormatCode = (formattedCode: string) => {
-    if (activeFileId) {
+  const formatCode = async () => {
+    if (!activeFile || isFormatting) return
+
+    setIsFormatting(true)
+
+    try {
+      // Dynamically import prettier and the appropriate parser
+      const prettier = await import("prettier/standalone")
+
+      let parser: string
+      let plugins: any[] = []
+
+      switch (activeFile.language) {
+        case "html":
+          parser = "html"
+          plugins = [await import("prettier/parser-html").then((mod) => mod.default)]
+          break
+        case "css":
+          parser = "css"
+          plugins = [await import("prettier/parser-postcss").then((mod) => mod.default)]
+          break
+        case "markdown":
+          parser = "markdown"
+          plugins = [await import("prettier/parser-markdown").then((mod) => mod.default)]
+          break
+        case "javascript":
+          parser = "babel"
+          plugins = [await import("prettier/parser-babel").then((mod) => mod.default)]
+          break
+        default:
+          parser = "babel"
+          plugins = [await import("prettier/parser-babel").then((mod) => mod.default)]
+      }
+
+      // Format the code
+      const formattedCode = await prettier.format(activeFile.content, {
+        parser,
+        plugins,
+        printWidth: 100,
+        tabWidth: 2,
+        useTabs: false,
+        semi: true,
+        singleQuote: false,
+        trailingComma: "es5",
+        bracketSpacing: true,
+        arrowParens: "always",
+      })
+
+      // Update the file content
       updateFileContent(formattedCode)
+
+      toast({
+        title: "Code formatted",
+        description: "Your code has been formatted successfully.",
+        duration: 2000,
+      })
+    } catch (error) {
+      console.error("Formatting error:", error)
+      toast({
+        title: "Formatting failed",
+        description: error instanceof Error ? error.message : "An error occurred while formatting the code.",
+        variant: "destructive",
+        duration: 3000,
+      })
+    } finally {
+      setIsFormatting(false)
     }
   }
 
@@ -188,12 +255,25 @@ export function TabbedEditor({ files, setFiles }: TabbedEditorProps) {
           {activeFile && (
             <>
               <Separator orientation="vertical" className="h-6" />
-              <CodeFormatter
-                code={activeFile.content}
-                language={activeFile.language}
-                onFormat={handleFormatCode}
-                disabled={!activeFile}
-              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={formatCode}
+                      disabled={!activeFile || isFormatting}
+                      className={isFormatting ? "opacity-70" : ""}
+                    >
+                      <Wand2 className={`h-4 w-4 ${isFormatting ? "animate-pulse" : "mr-1"}`} />
+                      {!isFormatting && "Format"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Format code using Prettier</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </>
           )}
         </div>
@@ -234,7 +314,7 @@ export function TabbedEditor({ files, setFiles }: TabbedEditorProps) {
               value={file.id}
               className="flex-1 p-0 m-0 data-[state=active]:flex data-[state=active]:flex-col"
             >
-              <CodeEditor
+              <DynamicCodeEditor
                 value={file.content}
                 onChange={updateFileContent}
                 language={file.language}
@@ -271,8 +351,8 @@ export function TabbedEditor({ files, setFiles }: TabbedEditorProps) {
           </div>
         </div>
       )}
-
-      <Toaster />
     </div>
   )
 }
+
+export default TabbedEditor

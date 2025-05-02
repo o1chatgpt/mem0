@@ -70,16 +70,15 @@
     "ai": "latest",
     "crypto": "latest",
     "openai": "latest",
-    "react-markdown": "latest",
     "@radix-ui/react-icons": "latest",
     "prettier": "latest",
-    "nanoid": "latest",
     "@uiw/react-codemirror": "latest",
     "@codemirror/lang-markdown": "latest",
     "@codemirror/lang-html": "latest",
     "@codemirror/lang-css": "latest",
     "@codemirror/lang-javascript": "latest",
-    "@uiw/codemirror-theme-tokyo-night": "latest"
+    "@uiw/codemirror-theme-tokyo-night": "latest",
+    "nanoid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
