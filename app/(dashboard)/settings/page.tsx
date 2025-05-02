@@ -3,6 +3,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserPreferences } from "@/components/user-preferences"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function SettingsPage() {
   return (
@@ -61,6 +63,15 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <div className="grid gap-4">
+        <h2 className="text-xl font-semibold">OpenAI Settings</h2>
+        <p className="text-muted-foreground">Configure your OpenAI API key for AI features like chat and embeddings.</p>
+        <div className="flex items-center gap-2">
+          <Link href="/settings/openai" passHref>
+            <Button>Configure OpenAI</Button>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }

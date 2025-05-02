@@ -1,12 +1,19 @@
 import { createClient } from "@supabase/supabase-js"
 
-// Initialize Supabase client
+// Initialize Supabase client with better error handling
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey)
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-// Add a flag to track if Mem0 API is working
+// Validate configuration
+let supabase: ReturnType<typeof createClient> | null = null
 let isMem0ApiWorking = true
+
+// Only create the client if we have the required configuration
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey)
+} else {
+  console.error("Supabase configuration is missing. Mem0 integration will use fallback mechanisms only.")
+}
 
 // Define a mapping of string identifiers to valid UUIDs for database compatibility
 const AI_FAMILY_UUID_MAP: Record<string, string> = {
@@ -37,6 +44,11 @@ function getAiFamilyUuid(aiFamily: string): string {
 // Add a helper function to get UUID for a user
 function getUserUuid(userId: string): string {
   return USER_UUID_MAP[userId] || "00000000-0000-0000-0000-000000000000"
+}
+
+// Function to check if database operations are possible
+function canUseDatabase(): boolean {
+  return !!supabase
 }
 
 // Function to integrate with Mem0 API
@@ -127,13 +139,35 @@ export async function storeMemoryWithMem0(userId: string, aiFamily: string, memo
 // Add this helper function for database store fallback
 async function fallbackToStoreDatabase(userId: string, aiFamily: string, memory: string): Promise<boolean> {
   console.log(`Falling back to database storage for memory: ${memory}`)
+
+  // Check if we can use the database
+  if (!canUseDatabase()) {
+    console.error("Cannot store memory: Database is not configured")
+    // Store in localStorage as a last resort
+    try {
+      if (typeof localStorage !== "undefined") {
+        const key = `memory_${userId}_${aiFamily}`
+        const existingMemories = JSON.parse(localStorage.getItem(key) || "[]")
+        existingMemories.push({
+          memory,
+          created_at: new Date().toISOString(),
+        })
+        localStorage.setItem(key, JSON.stringify(existingMemories))
+        return true
+      }
+    } catch (localStorageError) {
+      console.error("Failed to store memory in localStorage:", localStorageError)
+    }
+    return false
+  }
+
   try {
     // Convert aiFamily string to UUID using our mapping
     const aiFamilyUuid = getAiFamilyUuid(aiFamily)
     // Convert userId string to UUID using our mapping
     const userUuid = getUserUuid(userId)
 
-    const { error } = await supabase.from("ai_family_member_memories").insert([
+    const { error } = await supabase!.from("ai_family_member_memories").insert([
       {
         ai_family_member_id: aiFamilyUuid, // Use the UUID instead of the string
         user_id: userUuid, // Use the UUID instead of the string
@@ -250,13 +284,30 @@ export async function getMemoriesFromMem0(userId: string, aiFamily: string, limi
 // Add this helper function for database fallback
 async function fallbackToDatabase(userId: string, aiFamily: string, limit: number): Promise<any[]> {
   console.log(`Falling back to database retrieval for memories`)
+
+  // Check if we can use the database
+  if (!canUseDatabase()) {
+    console.error("Cannot retrieve memories: Database is not configured")
+    // Try to retrieve from localStorage as a last resort
+    try {
+      if (typeof localStorage !== "undefined") {
+        const key = `memory_${userId}_${aiFamily}`
+        const memories = JSON.parse(localStorage.getItem(key) || "[]")
+        return memories.slice(0, limit)
+      }
+    } catch (localStorageError) {
+      console.error("Failed to retrieve memories from localStorage:", localStorageError)
+    }
+    return []
+  }
+
   try {
     // Convert aiFamily string to UUID using our mapping
     const aiFamilyUuid = getAiFamilyUuid(aiFamily)
     // Convert userId string to UUID using our mapping
     const userUuid = getUserUuid(userId)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from("ai_family_member_memories")
       .select("*")
       .eq("ai_family_member_id", aiFamilyUuid) // Use the UUID instead of the string
@@ -375,13 +426,30 @@ async function fallbackToSearchDatabase(
   limit: number,
 ): Promise<any[]> {
   console.log(`Falling back to database search for memories with query: ${query}`)
+
+  // Check if we can use the database
+  if (!canUseDatabase()) {
+    console.error("Cannot search memories: Database is not configured")
+    // Try to search in localStorage as a last resort
+    try {
+      if (typeof localStorage !== "undefined") {
+        const key = `memory_${userId}_${aiFamily}`
+        const memories = JSON.parse(localStorage.getItem(key) || "[]")
+        return memories.filter((memory: any) => memory.memory.includes(query)).slice(0, limit)
+      }
+    } catch (localStorageError) {
+      console.error("Failed to search memories in localStorage:", localStorageError)
+    }
+    return []
+  }
+
   try {
     // Convert aiFamily string to UUID using our mapping
     const aiFamilyUuid = getAiFamilyUuid(aiFamily)
     // Convert userId string to UUID using our mapping
     const userUuid = getUserUuid(userId)
 
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from("ai_family_member_memories")
       .select("*")
       .eq("ai_family_member_id", aiFamilyUuid) // Use the UUID instead of the string
@@ -401,30 +469,110 @@ async function fallbackToSearchDatabase(
   }
 }
 
-// Function to check Mem0 API connection
+// Function to check Mem0 API connection with better diagnostics
 export async function checkMem0ApiConnection(
   customApiKey?: string,
   customApiUrl?: string,
 ): Promise<"connected" | "disconnected"> {
   try {
-    // Call the server API endpoint
-    const response = await fetch("/api/mem0", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        operation: "check",
-        customApiKey,
-        customApiUrl,
-      }),
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      return data.success && data.status === "connected" ? "connected" : "disconnected"
+    // Validate inputs
+    if (!customApiKey || !customApiUrl) {
+      console.log("Missing API key or URL for Mem0 connection check")
+      return "disconnected"
     }
 
+    // Log connection attempt (without exposing full API key)
+    console.log(`Attempting to connect to Mem0 API at ${customApiUrl} with key ${customApiKey.substring(0, 4)}...`)
+
+    // Format the base URL correctly
+    const baseUrl = customApiUrl.endsWith("/") ? customApiUrl.slice(0, -1) : customApiUrl
+
+    // Try direct connection first (most reliable)
+    try {
+      // Try a simple HEAD request to the base URL
+      const response = await fetch(baseUrl, {
+        method: "HEAD",
+        headers: {
+          Authorization: `Bearer ${customApiKey}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      })
+
+      console.log(`Direct connection to ${baseUrl}: ${response.status} ${response.statusText}`)
+
+      // Even a 401 or 403 would indicate the API exists
+      if (response.ok || response.status === 401 || response.status === 403) {
+        console.log("Mem0 API exists at the provided URL")
+        return "connected"
+      }
+    } catch (error) {
+      console.error(`Direct connection to ${baseUrl} failed:`, error)
+    }
+
+    // Try multiple possible endpoints
+    const possibleEndpoints = [
+      `${baseUrl}/api/health`,
+      `${baseUrl}/health`,
+      `${baseUrl}/api/status`,
+      `${baseUrl}/status`,
+      `${baseUrl}/memories`, // Try the main API endpoint as a fallback
+      `${baseUrl}/api/memory/search`, // Another common endpoint
+    ]
+
+    for (const endpoint of possibleEndpoints) {
+      try {
+        console.log(`Trying endpoint: ${endpoint}`)
+        const response = await fetch(endpoint, {
+          method: endpoint.includes("memories") || endpoint.includes("search") ? "HEAD" : "GET",
+          headers: {
+            Authorization: `Bearer ${customApiKey}`,
+          },
+          signal: AbortSignal.timeout(3000),
+        })
+
+        console.log(`Response from ${endpoint}: ${response.status} ${response.statusText}`)
+
+        // For the memories endpoint, even a 401 or 403 would indicate the API exists
+        if (
+          response.ok ||
+          ((endpoint.includes("memories") || endpoint.includes("search")) &&
+            (response.status === 401 || response.status === 403))
+        ) {
+          console.log(`Mem0 API connection successful via ${endpoint}`)
+          return "connected"
+        }
+      } catch (error) {
+        console.error(`Connection test failed for endpoint ${endpoint}:`, error)
+      }
+    }
+
+    // If we've tried all endpoints and none worked, try the server API
+    try {
+      console.log("Trying server API endpoint for connection check")
+      const response = await fetch("/api/mem0", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          operation: "check",
+          customApiKey,
+          customApiUrl,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Server API check result:", data)
+        return data.success && data.status === "connected" ? "connected" : "disconnected"
+      }
+
+      console.log("Server API check failed:", await response.text())
+    } catch (error) {
+      console.error("Error with server API check:", error)
+    }
+
+    console.log("All connection attempts failed, marking as disconnected")
     return "disconnected"
   } catch (error) {
     console.error("Error checking Mem0 API connection:", error)

@@ -13,7 +13,6 @@ import { useToast } from "@/components/ui/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, Database, Brain, Check, AlertTriangle, RefreshCw, Save, ExternalLink } from "lucide-react"
-import { checkMem0ApiConnection } from "@/lib/mem0-integration"
 
 export default function Mem0SettingsPage() {
   const [apiKey, setApiKey] = useState("")
@@ -25,6 +24,7 @@ export default function Mem0SettingsPage() {
   const [fallbackToLocal, setFallbackToLocal] = useState(true)
   const [showApiKey, setShowApiKey] = useState(false)
   const { toast } = useToast()
+  const [connectionDetails, setConnectionDetails] = useState<string>("Not tested")
 
   // Load saved settings on mount
   useEffect(() => {
@@ -93,27 +93,71 @@ export default function Mem0SettingsPage() {
     }
 
     setIsTesting(true)
+    setConnectionDetails("Testing connection...")
+
     try {
+      console.log("Testing Mem0 connection with:", {
+        apiUrl,
+        apiKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : "undefined",
+      })
+
       // Use the server-side API to check connection
-      const status = await checkMem0ApiConnection(apiKey, apiUrl)
+      const response = await fetch("/api/mem0", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          operation: "check",
+          customApiKey: apiKey,
+          customApiUrl: apiUrl,
+        }),
+      })
 
-      setConnectionStatus(status)
+      const responseText = await response.text()
+      console.log("Raw response:", responseText)
 
-      if (status === "connected") {
-        toast({
-          title: "Connection Successful",
-          description: "Successfully connected to the Mem0 API.",
-        })
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        setConnectionDetails(`Invalid response: ${responseText}`)
+        throw new Error(`Invalid JSON response: ${responseText}`)
+      }
+
+      console.log("Parsed response:", data)
+
+      if (response.ok && data.success) {
+        const status = data.status
+        setConnectionStatus(status)
+
+        if (status === "connected") {
+          setConnectionDetails("Successfully connected to the Mem0 API.")
+          toast({
+            title: "Connection Successful",
+            description: "Successfully connected to the Mem0 API.",
+          })
+        } else {
+          setConnectionDetails(`Connection failed. Status: ${status}`)
+          toast({
+            title: "Connection Failed",
+            description: "Failed to connect to the Mem0 API. Please check your API URL and API Key.",
+            variant: "destructive",
+          })
+        }
       } else {
+        setConnectionStatus("disconnected")
+        setConnectionDetails(`API error: ${data.error || "Unknown error"}`)
         toast({
-          title: "Connection Failed",
-          description: "Failed to connect to the Mem0 API. Please check your API URL and API Key.",
+          title: "Connection Error",
+          description: data.error || "Unknown error occurred",
           variant: "destructive",
         })
       }
     } catch (error) {
       console.error("Error testing Mem0 API connection:", error)
       setConnectionStatus("disconnected")
+      setConnectionDetails(error instanceof Error ? error.message : "Unknown error")
       toast({
         title: "Connection Error",
         description: error instanceof Error ? error.message : "Unknown error occurred",
@@ -222,10 +266,15 @@ export default function Mem0SettingsPage() {
                       </Badge>
                     )}
                   </div>
-                  <Button onClick={saveSettings} disabled={isLoading}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Settings
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/mem0/settings/diagnostics">Run Diagnostics</Link>
+                    </Button>
+                    <Button onClick={saveSettings} disabled={isLoading}>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Settings
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
             </div>

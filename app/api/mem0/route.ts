@@ -10,35 +10,46 @@ const getApiCredentials = () => {
 
 export async function POST(request: NextRequest) {
   try {
-    const { operation, userId, aiFamily, memory, query, limit } = await request.json()
+    const requestData = await request.json()
+    const { operation, userId, aiFamily, memory, query, limit, customApiKey, customApiUrl } = requestData
 
-    // Get credentials from server environment
-    const { apiKey, apiUrl } = getApiCredentials()
+    console.log(`Mem0 API route called with operation: ${operation}`)
+
+    // Get credentials from server environment or from request
+    const apiKey = customApiKey || process.env.MEM0_API_KEY || ""
+    const apiUrl = customApiUrl || process.env.MEM0_API_URL || ""
 
     // Check if credentials are available
     if (!apiKey || !apiUrl) {
+      console.error("API credentials not configured")
       return NextResponse.json({ success: false, error: "API credentials not configured on server" }, { status: 400 })
     }
 
     // Handle different operations
     switch (operation) {
       case "store": {
+        console.log(`Storing memory for user ${userId} and AI family ${aiFamily}`)
         const success = await storeMemory(apiKey, apiUrl, userId, aiFamily, memory)
         return NextResponse.json({ success })
       }
       case "get": {
+        console.log(`Getting memories for user ${userId} and AI family ${aiFamily}`)
         const memories = await getMemories(apiKey, apiUrl, userId, aiFamily, limit)
         return NextResponse.json({ success: true, memories })
       }
       case "search": {
+        console.log(`Searching memories for user ${userId} and AI family ${aiFamily} with query: ${query}`)
         const memories = await searchMemories(apiKey, apiUrl, userId, aiFamily, query, limit)
         return NextResponse.json({ success: true, memories })
       }
       case "check": {
+        console.log(`Checking connection to Mem0 API at ${apiUrl}`)
         const status = await checkConnection(apiKey, apiUrl)
+        console.log(`Connection status: ${status}`)
         return NextResponse.json({ success: true, status })
       }
       default:
+        console.error(`Invalid operation: ${operation}`)
         return NextResponse.json({ success: false, error: "Invalid operation" }, { status: 400 })
     }
   } catch (error) {
@@ -220,37 +231,71 @@ async function checkConnection(apiKey: string, apiUrl: string) {
     // Format the base URL correctly
     const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl
 
-    // Try multiple possible health endpoints
+    console.log(`Server: Checking Mem0 connection to ${baseUrl} with key ${apiKey.substring(0, 4)}...`)
+
+    // Try direct connection first (most reliable)
+    try {
+      // Try a simple HEAD request to the base URL
+      const response = await fetch(baseUrl, {
+        method: "HEAD",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: AbortSignal.timeout(5000),
+      })
+
+      console.log(`Server: Direct connection to ${baseUrl}: ${response.status} ${response.statusText}`)
+
+      // Even a 401 or 403 would indicate the API exists
+      if (response.ok || response.status === 401 || response.status === 403) {
+        console.log("Server: Mem0 API exists at the provided URL")
+        return "connected"
+      }
+    } catch (error) {
+      console.error(`Server: Direct connection to ${baseUrl} failed:`, error)
+    }
+
+    // Try multiple possible endpoints
     const possibleEndpoints = [
       `${baseUrl}/api/health`,
       `${baseUrl}/health`,
       `${baseUrl}/api/status`,
       `${baseUrl}/status`,
       `${baseUrl}/memories`, // Try the main API endpoint as a fallback
+      `${baseUrl}/api/memory/search`, // Another common endpoint
     ]
 
     for (const endpoint of possibleEndpoints) {
       try {
+        console.log(`Server: Trying endpoint: ${endpoint}`)
         const response = await fetch(endpoint, {
-          method: endpoint.includes("memories") ? "HEAD" : "GET",
+          method: endpoint.includes("memories") || endpoint.includes("search") ? "HEAD" : "GET",
           headers: {
             Authorization: `Bearer ${apiKey}`,
           },
           signal: AbortSignal.timeout(3000),
         })
 
+        console.log(`Server: Response from ${endpoint}: ${response.status} ${response.statusText}`)
+
         // For the memories endpoint, even a 401 or 403 would indicate the API exists
-        if (response.ok || (endpoint.includes("memories") && response.status !== 404)) {
+        if (
+          response.ok ||
+          ((endpoint.includes("memories") || endpoint.includes("search")) &&
+            (response.status === 401 || response.status === 403))
+        ) {
+          console.log(`Server: Mem0 API connection successful via ${endpoint}`)
           return "connected"
         }
       } catch (error) {
-        console.error(`Connection test failed for endpoint ${endpoint}:`, error)
+        console.error(`Server: Connection test failed for endpoint ${endpoint}:`, error)
       }
     }
 
+    console.log("Server: All connection attempts failed, marking as disconnected")
     return "disconnected"
   } catch (error) {
-    console.error("Error checking connection:", error)
+    console.error("Server: Error checking connection:", error)
     return "disconnected"
   }
 }

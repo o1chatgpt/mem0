@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Memory } from "@/components/memory"
 import { SimpleMarkdownRenderer } from "@/components/simple-markdown-renderer"
+import { ApiKeyErrorAlert } from "@/components/api-key-error-alert"
 
 interface AiChatInterfaceProps {
   assistant: {
@@ -21,11 +22,19 @@ interface AiChatInterfaceProps {
 
 export function AiChatInterface({ assistant }: AiChatInterfaceProps) {
   const [activeTab, setActiveTab] = useState("chat")
+  const [apiKeyError, setApiKeyError] = useState(false)
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
     api: "/api/chat",
     body: {
       aiFamily: assistant.id,
+    },
+    onError: (error) => {
+      console.error("Chat error:", error)
+      // Check if it's an API key error
+      if (error.message && error.message.toLowerCase().includes("api key")) {
+        setApiKeyError(true)
+      }
     },
   })
 
@@ -41,6 +50,17 @@ export function AiChatInterface({ assistant }: AiChatInterfaceProps) {
           <CardHeader>
             <CardTitle>Chat with {assistant.name}</CardTitle>
             <CardDescription>Discuss {assistant.specialty.toLowerCase()} or get assistance</CardDescription>
+            {apiKeyError && (
+              <ApiKeyErrorAlert
+                title="OpenAI API Key Error"
+                description="There was an issue with your OpenAI API key. Please check your configuration in settings."
+              />
+            )}
+            {error && !apiKeyError && (
+              <div className="text-red-500 text-sm mt-2">
+                Error: {error.message || "Something went wrong. Please try again."}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="flex-grow overflow-hidden">
             <ScrollArea className="h-[400px] pr-4">
@@ -78,8 +98,9 @@ export function AiChatInterface({ assistant }: AiChatInterfaceProps) {
                   value={input}
                   onChange={handleInputChange}
                   className="min-h-[80px]"
+                  disabled={apiKeyError}
                 />
-                <Button type="submit" disabled={isLoading || !input.trim()}>
+                <Button type="submit" disabled={isLoading || !input.trim() || apiKeyError}>
                   Send
                 </Button>
               </div>

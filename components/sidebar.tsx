@@ -64,7 +64,7 @@ const sidebarItems = [
   },
   {
     title: "Code Editor",
-    href: "/code-editor",
+    href: "/editor",
     icon: Code,
   },
   {

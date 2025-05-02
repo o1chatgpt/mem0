@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useToast } from "@/components/ui/use-toast"
-import { Database, Brain, Clock, Search, Settings, Download, Upload, Trash2, AlertTriangle } from "lucide-react"
+import { Clock, Search, Settings, Download, Upload, Trash2, AlertTriangle } from "lucide-react"
 import { SimpleMarkdownRenderer } from "@/components/simple-markdown-renderer"
 import {
   storeMemoryWithMem0,
@@ -21,7 +21,6 @@ import {
   checkMem0ApiConnection,
 } from "@/lib/mem0-integration"
 import { PreferencesProvider } from "@/components/preferences-provider"
-import { Mem0StatusIndicator } from "@/components/mem0-status-indicator"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +31,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Mem0ConnectionDetails } from "@/components/mem0-connection-details"
 
 // Mock data for fallback when all else fails
 const MOCK_MEMORIES = [
@@ -458,49 +458,7 @@ export default function Mem0Page() {
 
         <div className="grid gap-6 md:grid-cols-3">
           <div className="md:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  Mem0 Status
-                </CardTitle>
-                <CardDescription>Connection status and configuration</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">API Status</span>
-                    <Mem0StatusIndicator />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Memory Storage</span>
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      <Database className="h-3 w-3" />
-                      {apiStatus === "connected" ? "Mem0 Cloud" : "Local Database"}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Total Memories</span>
-                    <span className="font-mono">{memoryStats.total}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">Last Updated</span>
-                    <span className="text-sm text-muted-foreground">
-                      {memoryStats.lastSync ? new Date(memoryStats.lastSync).toLocaleString() : "Never"}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button variant="outline" className="w-full" onClick={fetchMemories} disabled={isLoading}>
-                  Refresh Memories
-                </Button>
-              </CardFooter>
-            </Card>
-
+            <Mem0ConnectionDetails />
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Memory Management</CardTitle>
