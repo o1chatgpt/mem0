@@ -1,24 +1,26 @@
 import type React from "react"
-import "./globals.css"
+import "@/app/globals.css"
+import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
-import { DemoModeProvider } from "@/lib/demo-mode-context"
-import { DemoModeIndicator } from "@/components/demo-mode-indicator"
+
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "File Manager with Mem0",
-  description: "A file manager with memory capabilities",
+  title: "File Manager",
+  description: "A file management system with AI capabilities",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <DemoModeProvider>
-            {children}
-            <DemoModeIndicator />
-          </DemoModeProvider>
+      <body className={inter.className}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
         </ThemeProvider>
       </body>
     </html>
