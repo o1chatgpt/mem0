@@ -12,18 +12,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       authenticated: true,
       user: {
+        id: session.id,
         username: session.username,
-        role: session.role,
+        email: session.email,
+        roles: session.roles,
       },
     })
   } catch (error) {
     console.error("Auth check error:", error)
-    return NextResponse.json(
-      {
-        authenticated: false,
-        error: "Authentication check failed",
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Authentication check failed" }, { status: 500 })
   }
 }

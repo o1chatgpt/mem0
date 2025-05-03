@@ -8,18 +8,31 @@ export async function middleware(request: NextRequest) {
       "/login",
       "/api/auth",
       "/direct-entry", // Add the direct entry path as public
+      "/auth-test", // Make auth test page public for testing
     ]
 
     const path = request.nextUrl.pathname
 
+    // Debug logging
+    console.log(`Middleware processing path: ${path}`)
+
+    // Log all cookies for debugging
+    const cookieString = request.cookies.toString()
+    console.log(`Cookies: ${cookieString}`)
+
     // Check if the path is public
     if (publicPaths.some((publicPath) => path.startsWith(publicPath))) {
+      console.log(`Path ${path} is public, allowing access`)
+
       // If user is trying to access login page but is already authenticated, redirect to home
       if (path === "/login") {
         const bypassAuth = request.cookies.get("bypass-auth")?.value
         const authToken = request.cookies.get("auth-token")?.value
 
+        console.log(`Login page check - bypass: ${!!bypassAuth}, token: ${!!authToken}`)
+
         if (bypassAuth === "admin-access-granted" || authToken) {
+          console.log("User already authenticated, redirecting to home")
           return NextResponse.redirect(new URL("/", request.url))
         }
       }
@@ -36,18 +49,16 @@ export async function middleware(request: NextRequest) {
     const bypassAuth = request.cookies.get("bypass-auth")?.value
     const authToken = request.cookies.get("auth-token")?.value
 
-    console.log("Middleware auth check:", {
-      path,
-      bypassAuth: bypassAuth ? "present" : "missing",
-      authToken: authToken ? "present" : "missing",
-    })
+    console.log(`Auth check for ${path} - bypass: ${!!bypassAuth}, token: ${!!authToken}`)
 
     if (bypassAuth === "admin-access-granted" || authToken) {
       // Allow access if either authentication method is present
+      console.log("Authentication found, allowing access")
       return NextResponse.next()
     }
 
     // Redirect to login if no authentication is found
+    console.log("No authentication found, redirecting to login")
     return NextResponse.redirect(new URL("/login", request.url))
   } catch (error) {
     console.error("Middleware error:", error)

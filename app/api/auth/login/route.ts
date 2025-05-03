@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { signToken, setAuthCookie } from "@/lib/auth"
+import { signToken } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
@@ -10,44 +10,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Username and password are required" }, { status: 400 })
     }
 
-    // Check credentials (in a real app, you would check against a database)
+    // Check credentials
+    let userId = ""
+    let userRoles: string[] = []
+    let userEmail = ""
+    let isAuthenticated = false
+
     if (username === "admin" && password === "!July1872") {
-      // Create session for admin user
-      const token = await signToken({
-        id: "admin-user",
-        username: "admin",
-        email: "admin@example.com",
-        roles: ["admin"], // Admin role
-      })
-
-      const response = NextResponse.json({ success: true })
-      return setAuthCookie(response, token)
+      userId = "admin-user"
+      userRoles = ["admin"]
+      userEmail = "admin@example.com"
+      isAuthenticated = true
     } else if (username === "editor" && password === "editor") {
-      // Demo editor user
-      const token = await signToken({
-        id: "editor-user",
-        username: "editor",
-        email: "editor@example.com",
-        roles: ["editor"], // Editor role
-      })
-
-      const response = NextResponse.json({ success: true })
-      return setAuthCookie(response, token)
+      userId = "editor-user"
+      userRoles = ["editor"]
+      userEmail = "editor@example.com"
+      isAuthenticated = true
     } else if (username === "viewer" && password === "viewer") {
-      // Demo viewer user
-      const token = await signToken({
-        id: "viewer-user",
-        username: "viewer",
-        email: "viewer@example.com",
-        roles: ["viewer"], // Viewer role
-      })
-
-      const response = NextResponse.json({ success: true })
-      return setAuthCookie(response, token)
+      userId = "viewer-user"
+      userRoles = ["viewer"]
+      userEmail = "viewer@example.com"
+      isAuthenticated = true
     }
 
-    // Invalid credentials
-    return NextResponse.json({ error: "Invalid username or password" }, { status: 401 })
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: "Invalid username or password" }, { status: 401 })
+    }
+
+    // Create token
+    const token = await signToken({
+      id: userId,
+      username,
+      email: userEmail,
+      roles: userRoles,
+    })
+
+    // Create response with redirect
+    const response = NextResponse.json({
+      success: true,
+      redirect: "/",
+    })
+
+    // Set cookie directly
+    response.cookies.set({
+      name: "auth-token",
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
+    })
+
+    return response
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

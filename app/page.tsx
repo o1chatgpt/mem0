@@ -29,7 +29,7 @@ export default function FilesPage() {
           setIsAuthenticated(true)
         } else {
           // Redirect to login if not authenticated
-          router.push("/login")
+          window.location.href = "/login"
         }
       } catch (error) {
         console.error("Auth check error:", error)

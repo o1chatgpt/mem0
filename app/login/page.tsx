@@ -2,14 +2,13 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CheckCircle } from "lucide-react"
 import { DemoLoginOptions } from "./demo-login-options"
 import { DemoModeToggle } from "@/components/demo-mode-toggle"
 
@@ -18,33 +17,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [loginSuccess, setLoginSuccess] = useState(false)
-  const router = useRouter()
-
-  // Effect to handle redirection after successful login
-  useEffect(() => {
-    if (loginSuccess) {
-      // Add a small delay to ensure cookie is set before redirecting
-      const redirectTimer = setTimeout(() => {
-        router.push("/")
-        // Force a hard refresh to ensure middleware picks up the new auth state
-        window.location.href = "/"
-      }, 500)
-
-      return () => clearTimeout(redirectTimer)
-    }
-  }, [loginSuccess, router])
+  const [isSuccess, setIsSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
-    setLoginSuccess(false)
+    setIsSuccess(false)
 
     try {
-      console.log("Attempting login with:", { username, password })
+      console.log("Attempting login with:", { username })
 
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch("/api/auth/simple-login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -54,14 +38,12 @@ export default function LoginPage() {
 
       console.log("Login response status:", response.status)
 
-      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
         let errorMessage = "Login failed"
         try {
           const errorData = await response.json()
           errorMessage = errorData.error || errorMessage
         } catch (jsonError) {
-          // If JSON parsing fails, use the status text
           errorMessage = `${response.status}: ${response.statusText || errorMessage}`
         }
         setError(errorMessage)
@@ -69,17 +51,37 @@ export default function LoginPage() {
         return
       }
 
-      // Parse JSON only if response is ok
       const data = await response.json()
       console.log("Login successful:", data)
 
-      // Set login success state to trigger redirection
-      setLoginSuccess(true)
+      // Show success message
+      setIsSuccess(true)
+      setIsLoading(false)
+
+      // Wait a moment to show the success message, then redirect
+      setTimeout(() => {
+        // Use window.location for a hard redirect
+        window.location.href = "/"
+      }, 2000)
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login. Please try again.")
-    } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Simple login function for testing
+  const handleSimpleLogin = async () => {
+    try {
+      const response = await fetch("/api/auth/bypass-login")
+      if (response.ok) {
+        window.location.href = "/"
+      } else {
+        setError("Simple login failed")
+      }
+    } catch (err) {
+      console.error("Simple login error:", err)
+      setError("An error occurred during simple login")
     }
   }
 
@@ -92,9 +94,10 @@ export default function LoginPage() {
             <CardDescription className="text-center">Login to access your files and memory</CardDescription>
           </CardHeader>
           <CardContent>
-            {loginSuccess ? (
+            {isSuccess ? (
               <Alert className="bg-green-50 border-green-200 text-green-800">
-                <AlertDescription>Login successful! Redirecting...</AlertDescription>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>Login successful! Redirecting to dashboard...</AlertDescription>
               </Alert>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -127,6 +130,12 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Logging in..." : "Login"}
                 </Button>
+
+                <div className="pt-4 border-t">
+                  <Button type="button" variant="outline" className="w-full" onClick={handleSimpleLogin}>
+                    Quick Login (Debug)
+                  </Button>
+                </div>
               </form>
             )}
           </CardContent>
