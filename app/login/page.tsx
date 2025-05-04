@@ -2,111 +2,179 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
+import { Brain, LogIn, Key, User } from "lucide-react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { loginUser, bypassLogin } from "@/app/actions/auth-actions"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { login } = useAuth()
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/check")
+        const data = await response.json()
+
+        if (data.authenticated) {
+          // User is already authenticated, redirect to main page
+          router.push("/")
+        }
+      } catch (error) {
+        console.error("Auth check error:", error)
+      } finally {
+        setAuthChecked(true)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setLoading(true)
     setError(null)
 
     try {
-      const success = await login(email, password)
+      const result = await loginUser(username, password)
 
-      if (success) {
+      if (result.success) {
         router.push("/")
       } else {
-        setError("Invalid email or password")
+        setError(result.error || "Login failed")
       }
     } catch (error) {
       console.error("Login error:", error)
-      setError("An error occurred during login. Please try again.")
+      setError("An unexpected error occurred")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
+  const handleBypassLogin = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const result = await bypassLogin()
+
+      if (result.success) {
+        router.push(result.redirectUrl || "/")
+      } else {
+        setError(result.error || "Bypass login failed")
+      }
+    } catch (error) {
+      console.error("Bypass login error:", error)
+      setError("An unexpected error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Don't render anything until we've checked authentication
+  if (!authChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">WebContainer Manager</CardTitle>
-          <CardDescription>Enter your credentials to access the application</CardDescription>
+          <div className="flex items-center justify-center mb-4">
+            <Brain className="h-12 w-12 text-primary" />
+          </div>
+          <CardTitle className="text-2xl text-center">File Manager with Mem0</CardTitle>
+          <CardDescription className="text-center">Sign in to access your files and server</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+
+        <CardContent>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
-                  Forgot password?
-                </Link>
+              <Label htmlFor="username">Username</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  placeholder="Enter your username"
+                  className="pl-9"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading}
+                  required
+                />
               </div>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
             </div>
-            <div className="text-sm text-muted-foreground">
-              <p>Demo credentials:</p>
-              <p>Email: gogiapandie@gmail.com</p>
-              <p>Password: !June1872</p>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  className="pl-9"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
-              )}
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              <LogIn className="h-4 w-4 mr-2" />
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
-            <div className="text-center text-sm">
-              Don't have an account?{" "}
-              <Link href="/register" className="text-blue-500 hover:text-blue-700">
-                Register
-              </Link>
+          </form>
+        </CardContent>
+
+        <CardFooter className="flex flex-col space-y-4">
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
             </div>
-          </CardFooter>
-        </form>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={handleBypassLogin} disabled={loading}>
+            <LogIn className="h-4 w-4 mr-2" />
+            Quick Demo Access
+          </Button>
+
+          <div className="text-center text-sm text-muted-foreground">
+            <p>
+              Need help?{" "}
+              <Link href="/help" className="underline">
+                Contact support
+              </Link>
+            </p>
+          </div>
+        </CardFooter>
       </Card>
     </div>
   )
