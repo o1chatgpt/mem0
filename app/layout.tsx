@@ -1,25 +1,38 @@
 import type React from "react"
+import type { Metadata } from "next"
+import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { DemoModeProvider } from "@/lib/demo-mode-context"
-import { DemoModeIndicator } from "@/components/demo-mode-indicator"
+import { AuthProvider } from "@/lib/auth-context"
 
-export const metadata = {
-  title: "File Manager with Mem0",
-  description: "A file manager with memory capabilities",
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+})
+
+export const metadata: Metadata = {
+  title: "WebContainer Manager",
+  description: "A web-based application for managing and running web containers",
     generator: 'v0.dev'
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <DemoModeProvider>
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
+        <AuthProvider>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}
-            <DemoModeIndicator />
-          </DemoModeProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )

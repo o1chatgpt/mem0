@@ -3,154 +3,111 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, CheckCircle } from "lucide-react"
-import { DemoLoginOptions } from "./demo-login-options"
-import { DemoModeToggle } from "@/components/demo-mode-toggle"
+import { Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import Link from "next/link"
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("")
+  const router = useRouter()
+  const { login } = useAuth()
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
     setIsLoading(true)
-    setIsSuccess(false)
+    setError(null)
 
     try {
-      console.log("Attempting login with:", { username })
+      const success = await login(email, password)
 
-      const response = await fetch("/api/auth/simple-login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      })
-
-      console.log("Login response status:", response.status)
-
-      if (!response.ok) {
-        let errorMessage = "Login failed"
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorMessage
-        } catch (jsonError) {
-          errorMessage = `${response.status}: ${response.statusText || errorMessage}`
-        }
-        setError(errorMessage)
-        setIsLoading(false)
-        return
-      }
-
-      const data = await response.json()
-      console.log("Login successful:", data)
-
-      // Show success message
-      setIsSuccess(true)
-      setIsLoading(false)
-
-      // Wait a moment to show the success message, then redirect
-      setTimeout(() => {
-        // Use window.location for a hard redirect
-        window.location.href = "/"
-      }, 2000)
-    } catch (err) {
-      console.error("Login error:", err)
-      setError("An error occurred during login. Please try again.")
-      setIsLoading(false)
-    }
-  }
-
-  // Simple login function for testing
-  const handleSimpleLogin = async () => {
-    try {
-      const response = await fetch("/api/auth/bypass-login")
-      if (response.ok) {
-        window.location.href = "/"
+      if (success) {
+        router.push("/")
       } else {
-        setError("Simple login failed")
+        setError("Invalid email or password")
       }
-    } catch (err) {
-      console.error("Simple login error:", err)
-      setError("An error occurred during simple login")
+    } catch (error) {
+      console.error("Login error:", error)
+      setError("An error occurred during login. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md">
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">File Manager with Mem0</CardTitle>
-            <CardDescription className="text-center">Login to access your files and memory</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isSuccess ? (
-              <Alert className="bg-green-50 border-green-200 text-green-800">
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>Login successful! Redirecting to dashboard...</AlertDescription>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold">WebContainer Manager</CardTitle>
+          <CardDescription>Enter your credentials to access the application</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-
-                <div className="pt-4 border-t">
-                  <Button type="button" variant="outline" className="w-full" onClick={handleSimpleLogin}>
-                    Quick Login (Debug)
-                  </Button>
-                </div>
-              </form>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
+                  Forgot password?
+                </Link>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p>Demo credentials:</p>
+              <p>Email: gogiapandie@gmail.com</p>
+              <p>Password: !June1872</p>
+            </div>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <DemoModeToggle />
+          <CardFooter className="flex flex-col space-y-2">
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+            <div className="text-center text-sm">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-blue-500 hover:text-blue-700">
+                Register
+              </Link>
+            </div>
           </CardFooter>
-        </Card>
-
-        <DemoLoginOptions />
-        <div className="mt-4 text-sm text-center text-muted-foreground">
-          <p className="font-medium">Admin credentials:</p>
-          <p>Username: admin</p>
-          <p>Password: !July1872</p>
-        </div>
-      </div>
+        </form>
+      </Card>
     </div>
   )
 }

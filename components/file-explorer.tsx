@@ -2,211 +2,265 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
-import { useAppContext } from "@/lib/app-context"
-import { Input } from "@/components/ui/input"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Folder, File, Search, Star, StarOff, RefreshCw, Clock } from "lucide-react"
-import { MemoryStatus } from "@/components/memory-status"
-import { MemorySearchSuggestions } from "@/components/memory-search-suggestions"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { FileIcon, FolderIcon, PlusCircle, Trash2, ChevronRight, ChevronDown, ArrowLeft } from "lucide-react"
+import type { FileSystemItem, FileType } from "@/types/file-system"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 
-export function FileExplorer() {
-  const {
-    files,
-    currentPath,
-    setCurrentPath,
-    selectedFileId,
-    setSelectedFileId,
-    refreshFiles,
-    isLoading,
-    error,
-    favoriteFiles,
-    addToFavorites,
-    removeFromFavorites,
-    recentFiles,
-    searchHistory,
-    addToSearchHistory,
-  } = useAppContext()
+interface FileExplorerProps {
+  items: FileSystemItem[]
+  currentPath: string
+  selectedItem: string | null
+  onSelectItem: (path: string) => void
+  onCreateItem: (name: string, type: FileType) => void
+  onDeleteItem: (path: string) => void
+  onNavigate: (path: string) => void
+  onMoveItem: (sourcePath: string, targetPath: string) => void
+}
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showRecent, setShowRecent] = useState(false)
-  const [filteredFiles, setFilteredFiles] = useState(files)
+export function FileExplorer({
+  items,
+  currentPath,
+  selectedItem,
+  onSelectItem,
+  onCreateItem,
+  onDeleteItem,
+  onNavigate,
+  onMoveItem,
+}: FileExplorerProps) {
+  const [newItemName, setNewItemName] = useState("")
+  const [isCreatingItem, setIsCreatingItem] = useState(false)
+  const [newItemType, setNewItemType] = useState<FileType>("file")
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([currentPath]))
+  const [draggedItem, setDraggedItem] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
-  // Update filtered files when files or search query changes
-  useEffect(() => {
-    if (!searchQuery) {
-      setFilteredFiles(files)
-      return
+  const handleCreateItem = () => {
+    if (newItemName.trim()) {
+      onCreateItem(newItemName.trim(), newItemType)
+      setNewItemName("")
+      setIsCreatingItem(false)
     }
+  }
 
-    const query = searchQuery.toLowerCase()
-    const filtered = files.filter((file) => file.name.toLowerCase().includes(query))
+  const toggleFolder = (path: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedFolders((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(path)) {
+        newSet.delete(path)
+      } else {
+        newSet.add(path)
+      }
+      return newSet
+    })
+  }
 
-    setFilteredFiles(filtered)
-  }, [files, searchQuery])
+  const handleDragStart = (e: React.DragEvent, path: string) => {
+    e.dataTransfer.setData("text/plain", path)
+    e.dataTransfer.effectAllowed = "move"
+    setDraggedItem(path)
+  }
 
-  // Handle search submit
-  const handleSearch = (e: React.FormEvent) => {
+  const handleDragOver = (e: React.DragEvent, path: string, isDirectory: boolean) => {
     e.preventDefault()
-    if (searchQuery.trim()) {
-      addToSearchHistory(searchQuery)
+    e.stopPropagation()
+
+    // Only allow dropping into directories
+    if (isDirectory && draggedItem !== path) {
+      e.dataTransfer.dropEffect = "move"
+      setDropTarget(path)
+      setIsDraggingOver(true)
+    } else {
+      e.dataTransfer.dropEffect = "none"
     }
   }
 
-  // Navigate to parent directory
-  const navigateUp = () => {
-    const parentPath = currentPath.split("/").slice(0, -1).join("/")
-    setCurrentPath(parentPath || "/")
+  const handleDragEnter = (e: React.DragEvent, path: string, isDirectory: boolean) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (isDirectory && draggedItem !== path) {
+      setDropTarget(path)
+      setIsDraggingOver(true)
+    }
   }
 
-  // Get files to display based on current mode
-  const displayedFiles = useMemo(() => {
-    if (showRecent) {
-      return recentFiles
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetPath: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const sourcePath = e.dataTransfer.getData("text/plain")
+
+    if (sourcePath && targetPath && sourcePath !== targetPath) {
+      onMoveItem(sourcePath, targetPath)
     }
-    return filteredFiles
-  }, [filteredFiles, recentFiles, showRecent])
+
+    setDraggedItem(null)
+    setDropTarget(null)
+    setIsDraggingOver(false)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedItem(null)
+    setDropTarget(null)
+    setIsDraggingOver(false)
+  }
+
+  const renderFileItem = (item: FileSystemItem, depth = 0) => {
+    const isExpanded = expandedFolders.has(item.path)
+    const isDirectory = item.type === "directory"
+    const isDragging = draggedItem === item.path
+    const isDropTargetItem = dropTarget === item.path && isDraggingOver
+
+    return (
+      <li key={item.path} className={isDragging ? "opacity-50" : ""}>
+        <div
+          className={cn(
+            "flex items-center justify-between p-2 rounded-md text-sm cursor-pointer",
+            selectedItem === item.path ? "bg-gray-100 dark:bg-gray-800" : "hover:bg-gray-50 dark:hover:bg-gray-900",
+            isDropTargetItem ? "bg-blue-50 dark:bg-blue-900 border border-blue-300 dark:border-blue-700" : "",
+          )}
+          style={{ paddingLeft: `${(depth + 1) * 8}px` }}
+          onClick={() => (isDirectory ? onNavigate(item.path) : onSelectItem(item.path))}
+          draggable={true}
+          onDragStart={(e) => handleDragStart(e, item.path)}
+          onDragOver={(e) => handleDragOver(e, item.path, isDirectory)}
+          onDragEnter={(e) => handleDragEnter(e, item.path, isDirectory)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, item.path)}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex items-center flex-1 overflow-hidden">
+            {isDirectory && (
+              <span className="mr-1 cursor-pointer" onClick={(e) => toggleFolder(item.path, e)}>
+                {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              </span>
+            )}
+            {isDirectory ? (
+              <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-500" />
+            ) : (
+              <FileIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+            )}
+            <span className="truncate">{item.name}</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDeleteItem(item.path)
+            }}
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+
+        {isDirectory && isExpanded && item.children && item.children.length > 0 && (
+          <ul className="space-y-1 mt-1">{item.children.map((child) => renderFileItem(child, depth + 1))}</ul>
+        )}
+      </li>
+    )
+  }
+
+  const canNavigateUp = currentPath !== "/"
 
   return (
-    <div className="w-1/3 flex flex-col border-r border-gray-700 overflow-hidden bg-gray-900">
-      <div className="p-4 border-b border-gray-700">
-        <form onSubmit={handleSearch} className="flex space-x-2 mb-4 relative">
-          <Input
-            placeholder="Search files..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-gray-800 border-gray-700"
-          />
-          <Button type="submit" size="icon" className="bg-gray-800 hover:bg-gray-700">
-            <Search className="h-4 w-4" />
-          </Button>
-          <MemorySearchSuggestions
-            onSelectSuggestion={(query) => {
-              setSearchQuery(query)
-              // Immediately submit the search form
-              const event = new Event("submit", { cancelable: true })
-              document.querySelector("form")?.dispatchEvent(event)
-            }}
-            currentQuery={searchQuery}
-          />
-        </form>
-
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-1">
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center">
+          {canNavigateUp && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={navigateUp}
-              disabled={currentPath === "/"}
-              className="text-gray-300 hover:text-white hover:bg-gray-800"
+              onClick={() => onNavigate(currentPath.split("/").slice(0, -1).join("/") || "/")}
+              className="h-8 w-8 p-0 mr-1"
             >
-              ..
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-mono truncate text-gray-300">{currentPath}</span>
-          </div>
-
-          <div className="flex space-x-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowRecent(!showRecent)}
-              title={showRecent ? "Show current directory" : "Show recent files"}
-              className="text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              <Clock className={`h-4 w-4 ${showRecent ? "text-primary" : ""}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={refreshFiles}
-              disabled={isLoading}
-              title="Refresh"
-              className="text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
-          </div>
+          )}
+          <h3 className="text-sm font-medium truncate">{currentPath === "/" ? "Root" : currentPath}</h3>
         </div>
-
-        <MemoryStatus />
-
-        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
-
-        {searchHistory.length > 0 && searchQuery && (
-          <div className="mb-2">
-            <p className="text-xs text-gray-400 mb-1">Recent searches:</p>
-            <div className="flex flex-wrap gap-1">
-              {searchHistory.map((query, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs h-6 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
-                  onClick={() => setSearchQuery(query)}
-                >
-                  {query}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <PlusCircle className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                setNewItemType("file")
+                setIsCreatingItem(true)
+              }}
+            >
+              <FileIcon className="h-4 w-4 mr-2" />
+              New File
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setNewItemType("directory")
+                setIsCreatingItem(true)
+              }}
+            >
+              <FolderIcon className="h-4 w-4 mr-2" />
+              New Folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 bg-gray-900">
-        {displayedFiles.length === 0 ? (
-          <Card className="bg-gray-800 border-gray-700">
-            <CardContent className="p-4 text-center text-gray-400">
-              {showRecent
-                ? "No recent files"
-                : searchQuery
-                  ? "No files match your search"
-                  : "No files in this directory"}
-            </CardContent>
-          </Card>
+      {isCreatingItem && (
+        <div className="flex items-center mb-2">
+          <Input
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            placeholder={newItemType === "file" ? "filename.js" : "folder-name"}
+            className="text-sm h-8"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreateItem()
+              if (e.key === "Escape") setIsCreatingItem(false)
+            }}
+            autoFocus
+          />
+          <Button variant="ghost" size="sm" onClick={handleCreateItem} className="ml-1 h-8">
+            Add
+          </Button>
+        </div>
+      )}
+
+      <ScrollArea
+        className={cn(
+          "h-[calc(100%-2rem)] border rounded-md p-2",
+          isDraggingOver && dropTarget === currentPath
+            ? "bg-blue-50 dark:bg-blue-900 border-blue-300 dark:border-blue-700"
+            : "",
+        )}
+        onDragOver={(e) => handleDragOver(e, currentPath, true)}
+        onDragEnter={(e) => handleDragEnter(e, currentPath, true)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(e, currentPath)}
+      >
+        {items.length === 0 ? (
+          <div className="text-center text-gray-500 py-4 text-sm">
+            No files or folders yet. Create or upload to get started.
+          </div>
         ) : (
-          <div className="space-y-1">
-            {displayedFiles.map((file) => {
-              const isFavorite = favoriteFiles.includes(file.id)
-
-              return (
-                <div
-                  key={file.id}
-                  className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-gray-800 ${
-                    selectedFileId === file.id ? "bg-gray-800" : ""
-                  }`}
-                  onClick={() => setSelectedFileId(file.id)}
-                >
-                  <div className="flex items-center space-x-2 overflow-hidden">
-                    {file.type === "directory" ? (
-                      <Folder className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                    ) : (
-                      <File className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    )}
-                    <span className="truncate text-gray-200">{file.name}</span>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-gray-400 hover:text-gray-200 hover:bg-gray-700"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      isFavorite ? removeFromFavorites(file.id) : addToFavorites(file.id)
-                    }}
-                  >
-                    {isFavorite ? (
-                      <Star className="h-4 w-4 text-yellow-400" />
-                    ) : (
-                      <StarOff className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-              )
-            })}
-          </div>
+          <ul className="space-y-1">{items.map((item) => renderFileItem(item))}</ul>
         )}
-      </div>
+      </ScrollArea>
     </div>
   )
 }
