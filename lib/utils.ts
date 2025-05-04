@@ -17,11 +17,9 @@ export function formatBytes(bytes: number, decimals = 2) {
   return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i]
 }
 
-export function formatDate(date: Date | string): string {
-  if (typeof date === "string") {
-    date = new Date(date)
-  }
-  return date.toLocaleDateString("en-US", {
+export function formatDate(date: Date | string) {
+  const d = new Date(date)
+  return d.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -39,6 +37,15 @@ export function debounce<T extends (...args: any[]) => any>(func: T, wait: numbe
   }
 }
 
-export function generateUniqueId(): string {
+export function generateUniqueId() {
   return Math.random().toString(36).substring(2, 9)
+}
+
+export function isValidUrl(url: string) {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
 }

@@ -6,11 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UsageTimeline } from "@/components/usage-timeline"
-import { UsageHeatmap } from "@/components/usage-heatmap"
-import { UsageTrends } from "@/components/usage-trends"
-import { MemoryInsights } from "@/components/memory-insights"
-import { NavigationHistory } from "@/components/navigation-history"
 import { Brain, Calendar, Clock, BarChart2, Tag, Search, FileText, Folder } from "lucide-react"
 
 export function MemoryDashboard() {
@@ -26,6 +21,7 @@ export function MemoryDashboard() {
     tagOperations: 0,
     storageMode: "local",
   })
+  const [memories, setMemories] = useState<any[]>([])
 
   useEffect(() => {
     const loadMemoryStats = async () => {
@@ -35,7 +31,8 @@ export function MemoryDashboard() {
         const storageMode = memoryStore.getStorageMode ? memoryStore.getStorageMode() : "local"
 
         // Get memories
-        const memories = memoryStore.getMemories()
+        const memories = memoryStore.getMemories ? memoryStore.getMemories() : []
+        setMemories(memories)
 
         // Calculate stats
         const fileAccesses = memories.filter(
@@ -71,15 +68,19 @@ export function MemoryDashboard() {
       }
     }
 
-    loadMemoryStats()
+    if (memoryStore) {
+      loadMemoryStats()
+    }
   }, [memoryStore])
 
   const handleClearMemory = async () => {
     if (confirm("Are you sure you want to clear all memory data? This action cannot be undone.")) {
       try {
-        await memoryStore.clearMemory()
-        alert("Memory data cleared successfully")
-        window.location.reload()
+        if (memoryStore && memoryStore.clearMemory) {
+          await memoryStore.clearMemory()
+          alert("Memory data cleared successfully")
+          window.location.reload()
+        }
       } catch (error) {
         console.error("Error clearing memory:", error)
         alert("Failed to clear memory data")
@@ -329,7 +330,7 @@ export function MemoryDashboard() {
                 <CardTitle className="text-lg">Recent Activity</CardTitle>
               </CardHeader>
               <CardContent className="h-[300px] overflow-y-auto">
-                <RecentActivityList memoryStore={memoryStore} />
+                <RecentActivityList memories={memories} />
               </CardContent>
             </Card>
 
@@ -350,32 +351,32 @@ export function MemoryDashboard() {
         </TabsContent>
 
         <TabsContent value="timeline">
-          <div className="h-[600px]">
-            <UsageTimeline />
+          <div className="h-[600px] flex items-center justify-center">
+            <p className="text-muted-foreground">Timeline visualization is loading...</p>
           </div>
         </TabsContent>
 
         <TabsContent value="heatmap">
-          <div className="h-[600px]">
-            <UsageHeatmap />
+          <div className="h-[600px] flex items-center justify-center">
+            <p className="text-muted-foreground">Heatmap visualization is loading...</p>
           </div>
         </TabsContent>
 
         <TabsContent value="trends">
-          <div className="h-[600px]">
-            <UsageTrends />
+          <div className="h-[600px] flex items-center justify-center">
+            <p className="text-muted-foreground">Usage trends visualization is loading...</p>
           </div>
         </TabsContent>
 
         <TabsContent value="navigation">
-          <div className="h-[600px]">
-            <NavigationHistory />
+          <div className="h-[600px] flex items-center justify-center">
+            <p className="text-muted-foreground">Navigation history is loading...</p>
           </div>
         </TabsContent>
 
         <TabsContent value="insights">
-          <div className="h-[600px]">
-            <MemoryInsights />
+          <div className="h-[600px] flex items-center justify-center">
+            <p className="text-muted-foreground">Memory insights are loading...</p>
           </div>
         </TabsContent>
       </Tabs>
@@ -384,19 +385,8 @@ export function MemoryDashboard() {
 }
 
 // Helper component for recent activity list
-function RecentActivityList({ memoryStore }) {
-  const [activities, setActivities] = useState([])
-
-  useEffect(() => {
-    // Get memories and sort by timestamp (newest first)
-    const memories = memoryStore.getMemories()
-    const sortedMemories = [...memories].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    )
-    setActivities(sortedMemories.slice(0, 20)) // Get the 20 most recent activities
-  }, [memoryStore])
-
-  if (activities.length === 0) {
+function RecentActivityList({ memories = [] }) {
+  if (memories.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
         <Clock className="h-12 w-12 mb-2 opacity-50" />
@@ -405,9 +395,13 @@ function RecentActivityList({ memoryStore }) {
     )
   }
 
+  // Sort memories by timestamp (newest first)
+  const sortedMemories = [...memories].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const recentActivities = sortedMemories.slice(0, 20) // Get the 20 most recent activities
+
   return (
     <div className="space-y-3">
-      {activities.map((activity, index) => {
+      {recentActivities.map((activity, index) => {
         // Determine icon based on activity text
         let icon = <Clock className="h-4 w-4 text-muted-foreground" />
 

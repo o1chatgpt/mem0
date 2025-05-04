@@ -22,6 +22,13 @@ const nextConfig = {
     config.externals = [...(config.externals || []), { canvas: 'canvas' }];
     return config;
   },
+  // Add experimental features to improve server-side rendering
+  experimental: {
+    // Improve server-side rendering performance
+    serverComponentsExternalPackages: ['canvas', 'jsdom'],
+    // Disable server actions for now to avoid potential issues
+    serverActions: false,
+  },
 };
 
 export default nextConfig;
