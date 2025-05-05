@@ -26,7 +26,7 @@ export function SimpleMarkdownRenderer({ content }: SimpleMarkdownRendererProps)
 
     // Replace lists
     html = html.replace(/^\s*- (.*$)/gm, "<li>$1</li>")
-    html = html.replace(/(<li>.*<\/li>)/gm, "<ul>{'$1'}</ul>")
+    html = html.replace(/(<li>.*<\/li>)/gm, "<ul>$1</ul>")
 
     // Replace paragraphs
     html = html.replace(/^(?!<[a-z])(.*$)/gm, "<p>$1</p>")
