@@ -109,7 +109,7 @@ const EXPORT_FORMATS = [
 export default function Mem0Page() {
   const router = useRouter()
   const {
-    memories,
+    memories: mem0Memories,
     createMemory,
     deleteMemory,
     refreshMemories,
@@ -123,15 +123,16 @@ export default function Mem0Page() {
   const [newMemoryContent, setNewMemoryContent] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [/*filteredMemories*/ , setFilteredMemories] = useState<Mem0Memory[]>([])
+  const [memories, setMemories] = useState<any[]>([])
 
   // Filter memories based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredMemories(memories)
+      setFilteredMemories(memories || [])
     } else {
       const query = searchQuery.toLowerCase()
       setFilteredMemories(
-        memories.filter(
+        (memories || []).filter(
           (memory) => memory.content?.toLowerCase().includes(query) || memory.id?.toLowerCase().includes(query),
         ),
       )
@@ -148,7 +149,7 @@ export default function Mem0Page() {
 
   const [isCreating, setIsCreating] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
-  const [/*memoriesOld*/ , setMemories] = useState<any[]>([])
+  const [/*memoriesOld*/ /*setMemories*/ ,] = useState<any[]>([])
   const [/*isLoadingOld*/ , setIsLoading] = useState(false)
   const [newMemory, setNewMemory] = useState("")
   const [isSearching, setIsSearching] = useState(false)
@@ -1050,7 +1051,9 @@ export default function Mem0Page() {
     }
   }
 
-  const filteredMemories = memories.filter((memory) => memory.content.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredMemories = memories
+    ? memories.filter((memory) => memory.content && memory.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    : []
 
   const handleCreateMemoryOld = async () => {
     if (!newMemoryContent.trim()) return
