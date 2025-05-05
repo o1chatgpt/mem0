@@ -80,7 +80,8 @@
     "@uiw/codemirror-theme-tokyo-night": "latest",
     "nanoid": "latest",
     "react-force-graph": "latest",
-    "react-tagcloud": "latest"
+    "react-tagcloud": "latest",
+    "@ai-sdk/openai": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

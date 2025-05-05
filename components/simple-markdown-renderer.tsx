@@ -37,5 +37,5 @@ export function SimpleMarkdownRenderer({ content }: SimpleMarkdownRendererProps)
     return html
   }
 
-  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }} />
+  return <div className="markdown-content" dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}></div>
 }

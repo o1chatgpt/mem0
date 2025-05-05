@@ -585,7 +585,7 @@ export async function searchMemoriesFromMem0(
           console.warn("Server API returned success but no memories or success: false", data)
         }
       } else {
-        console.warn(`API returned status ${response.status}: ${response.statusText}`)
+        console.warn(`Server API returned status ${response.status}: ${response.statusText}`)
       }
     } catch (error) {
       console.error("Error calling server API:", error)
@@ -836,4 +836,9 @@ export async function trackSearchQuery(userId: string, query: string): Promise<b
     console.error("Error tracking search query:", error)
     return false
   }
+}
+
+// Function to get memories for an AI family member (for backward compatibility)
+export async function getMemoriesForAIFamily(aiFamily: string, limit = 10): Promise<any[]> {
+  return getMemoriesFromMem0("default_user", aiFamily, limit)
 }
