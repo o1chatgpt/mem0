@@ -842,3 +842,5 @@ export async function trackSearchQuery(userId: string, query: string): Promise<b
 export async function getMemoriesForAIFamily(aiFamily: string, limit = 10): Promise<any[]> {
   return getMemoriesFromMem0("default_user", aiFamily, limit)
 }
+
+// Re-export all required functions to ensure they're available
