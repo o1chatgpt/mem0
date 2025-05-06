@@ -1,131 +1,237 @@
 "use client"
 
+import { Clock, Star, Settings, HelpCircle, Search, Trash2, Brain, Database } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useAppContext } from "@/lib/app-context"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { useState } from "react"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Home,
-  Users,
-  Settings,
-  FileText,
-  PenToolIcon as Tool,
-  Database,
-  Code,
-  Menu,
-  X,
-  CreditCard,
-  Briefcase,
-  Brain,
-} from "lucide-react"
-import { useState } from "react"
-
-const sidebarItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "AI Family",
-    href: "/ai-family",
-    icon: Users,
-  },
-  {
-    title: "Cards",
-    href: "/cards",
-    icon: CreditCard,
-  },
-  {
-    title: "CrewAI",
-    href: "/crew-ai",
-    icon: Briefcase,
-  },
-  {
-    title: "Mem0",
-    href: "/mem0",
-    icon: Brain,
-  },
-  {
-    title: "Tools",
-    href: "/tools",
-    icon: Tool,
-  },
-  {
-    title: "Files",
-    href: "/files",
-    icon: FileText,
-  },
-  {
-    title: "Database",
-    href: "/database",
-    icon: Database,
-  },
-  {
-    title: "Code Editor",
-    href: "/editor",
-    icon: Code,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
+import { IntelligentFileSuggestions } from "@/components/intelligent-file-suggestions"
 
 export function Sidebar() {
+  // Destructure with default empty arrays to prevent undefined errors
+  const {
+    recentFiles = [],
+    frequentFiles = [],
+    suggestedFiles = [],
+    favoriteFiles = [],
+    recentSearches = [],
+    setSelectedFileId,
+    setSearchQuery,
+    memoryStore,
+  } = useAppContext()
+
+  const [isMemoryDialogOpen, setIsMemoryDialogOpen] = useState(false)
   const pathname = usePathname()
-  const [isOpen, setIsOpen] = useState(false)
+
+  const handleClearMemory = async () => {
+    try {
+      if (memoryStore) {
+        await memoryStore.clearMemory?.() // Optional chaining in case method doesn't exist
+      }
+      setIsMemoryDialogOpen(false)
+      window.location.reload() // Reload to reset all state
+    } catch (error) {
+      console.error("Error clearing memory:", error)
+    }
+  }
+
+  // Ensure all arrays are defined before accessing their properties
+  const safeRecentFiles = recentFiles || []
+  const safeFrequentFiles = frequentFiles || []
+  const safeSuggestedFiles = suggestedFiles || []
+  const safeFavoriteFiles = favoriteFiles || []
+  const safeRecentSearches = recentSearches || []
 
   return (
-    <>
-      <Button
-        variant="outline"
-        size="icon"
-        className="fixed left-4 top-4 z-50 md:hidden"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-      </Button>
-      <div
-        className={cn(
-          "fixed inset-0 z-40 bg-background/80 backdrop-blur-sm transition-all duration-100 md:hidden",
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-        onClick={() => setIsOpen(false)}
-      />
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 w-64 border-r bg-background transition-transform duration-200 md:static md:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <div className="flex h-16 items-center border-b px-6">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <span className="text-xl">File Manager</span>
-          </Link>
-        </div>
-        <ScrollArea className="h-[calc(100vh-4rem)]">
-          <div className="px-3 py-4">
-            <nav className="flex flex-col gap-1">
-              {sidebarItems.map((item) => (
-                <Button
-                  key={item.href}
-                  variant={pathname === item.href || pathname?.startsWith(`${item.href}/`) ? "secondary" : "ghost"}
-                  className="justify-start"
-                  asChild
-                >
-                  <Link href={item.href}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.title}
-                  </Link>
-                </Button>
-              ))}
-            </nav>
+    <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          <h2 className="font-semibold mb-4 flex items-center">
+            <Brain className="h-5 w-5 mr-2 text-primary" />
+            Smart File Manager
+          </h2>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium flex items-center mb-2">
+              <Star className="h-4 w-4 mr-2 text-yellow-400" />
+              Favorites
+            </h3>
+            <div className="space-y-1">
+              {safeFavoriteFiles.length > 0 ? (
+                safeFavoriteFiles.map((file) => (
+                  <Button
+                    key={file.id}
+                    variant="ghost"
+                    className="w-full justify-start text-sm h-auto py-1.5"
+                    onClick={() => setSelectedFileId(file.id)}
+                  >
+                    <span className="truncate">{file.name}</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground px-2">No favorite files</p>
+              )}
+            </div>
           </div>
-        </ScrollArea>
-      </aside>
-    </>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium flex items-center mb-2">
+              <Clock className="h-4 w-4 mr-2" />
+              Recent Files
+            </h3>
+            <div className="space-y-1">
+              {safeRecentFiles.length > 0 ? (
+                safeRecentFiles.map((file) => (
+                  <Button
+                    key={file.id}
+                    variant="ghost"
+                    className="w-full justify-start text-sm h-auto py-1.5"
+                    onClick={() => setSelectedFileId(file.id)}
+                  >
+                    <span className="truncate">{file.name}</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground px-2">No recent files</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium flex items-center mb-2">
+              <Star className="h-4 w-4 mr-2" />
+              Frequent Files
+            </h3>
+            <div className="space-y-1">
+              {safeFrequentFiles.length > 0 ? (
+                safeFrequentFiles.map((file) => (
+                  <Button
+                    key={file.id}
+                    variant="ghost"
+                    className="w-full justify-start text-sm h-auto py-1.5"
+                    onClick={() => setSelectedFileId(file.id)}
+                  >
+                    <span className="truncate">{file.name}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">{file.accessCount}×</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground px-2">No frequent files</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium flex items-center mb-2">
+              <Brain className="h-4 w-4 mr-2 text-primary" />
+              Suggested Files
+            </h3>
+            <div className="space-y-1">
+              {safeSuggestedFiles.length > 0 ? (
+                safeSuggestedFiles.map((file) => (
+                  <Button
+                    key={file.id}
+                    variant="ghost"
+                    className="w-full justify-start text-sm h-auto py-1.5"
+                    onClick={() => setSelectedFileId(file.id)}
+                  >
+                    <span className="truncate">{file.name}</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground px-2">No suggestions yet</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-medium flex items-center mb-2">
+              <Search className="h-4 w-4 mr-2" />
+              Recent Searches
+            </h3>
+            <div className="space-y-1">
+              {safeRecentSearches.length > 0 ? (
+                safeRecentSearches.map((query, index) => (
+                  <Button
+                    key={index}
+                    variant="ghost"
+                    className="w-full justify-start text-sm h-auto py-1.5"
+                    onClick={() => setSearchQuery?.(query)}
+                  >
+                    <span className="truncate">{query}</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground px-2">No recent searches</p>
+              )}
+            </div>
+          </div>
+
+          {/* Add intelligent file suggestions */}
+          <IntelligentFileSuggestions />
+
+          <div className="mt-auto space-y-2">
+            <Dialog open={isMemoryDialogOpen} onOpenChange={setIsMemoryDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Memory
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Clear Memory</DialogTitle>
+                  <DialogDescription>
+                    This will clear all your memory data including recent files, favorites, and search history. This
+                    action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsMemoryDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" onClick={handleClearMemory}>
+                    Clear Memory
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Link
+              href="/admin/memory"
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
+                pathname === "/admin/memory"
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <Database className="h-4 w-4" />
+              Memory Admin
+            </Link>
+
+            <Button variant="ghost" className="w-full justify-start">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+            <Button variant="ghost" className="w-full justify-start">
+              <HelpCircle className="h-4 w-4 mr-2" />
+              Help & Support
+            </Button>
+          </div>
+        </div>
+      </ScrollArea>
+    </div>
   )
 }
