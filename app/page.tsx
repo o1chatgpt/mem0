@@ -1,23 +1,34 @@
+"use client"
+
 import type React from "react"
+
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardStats } from "@/components/dashboard-stats"
 import { RecentMemories } from "@/components/recent-memories"
 import { MemoryUsage } from "@/components/memory-usage"
-import { Database, FileText, FolderOpen, Users } from "lucide-react"
+import { Database, FileText, FolderOpen, Users, Brain, Tag, BarChart2, Mail, Workflow, Globe, Bell } from "lucide-react"
 import Link from "next/link"
+import { useBreadcrumb } from "@/components/breadcrumb-provider"
 
 export default function Home() {
   // In a real app, this would come from authentication
   const userId = 1 // Using the admin user we created in the database
+  const { setBreadcrumbs } = useBreadcrumb()
+
+  // Set empty breadcrumbs for the dashboard
+  useEffect(() => {
+    setBreadcrumbs([])
+  }, [setBreadcrumbs])
 
   // Check if Supabase environment variables are available
   const isSupabaseConfigured = !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!isSupabaseConfigured) {
     return (
-      <div className="container mx-auto py-10">
+      <div className="container mx-auto py-10 px-4 md:px-6">
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="text-red-600">Configuration Error</CardTitle>
@@ -58,7 +69,7 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="container mx-auto py-10 px-4 md:px-6">
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -68,9 +79,9 @@ export default function Home() {
       <Tabs defaultValue="overview" className="mb-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="folders">Folders</TabsTrigger>
-          <TabsTrigger value="ai-family">AI Family</TabsTrigger>
+          <TabsTrigger value="files">Files & Folders</TabsTrigger>
+          <TabsTrigger value="memory">Memory System</TabsTrigger>
+          <TabsTrigger value="ai">AI & Automation</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
           <div className="grid gap-6 md:grid-cols-2">
@@ -79,117 +90,224 @@ export default function Home() {
           </div>
         </TabsContent>
         <TabsContent value="files">
-          <Card>
-            <CardHeader>
-              <CardTitle>Files</CardTitle>
-              <CardDescription>Manage your files and documents</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-8">
-                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Manage Your Files</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Upload, organize, and access your files from anywhere.
-                </p>
-                <Link href="/files">
-                  <Button>Go to Files</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Files</CardTitle>
+                <CardDescription>Manage your files and documents</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Manage Your Files</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Upload, organize, and access your files from anywhere.
+                  </p>
+                  <Link href="/files">
+                    <Button>Go to Files</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Folders</CardTitle>
+                <CardDescription>Organize your content in folders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-8">
+                  <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Manage Your Folders</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create folders to organize your files and content.
+                  </p>
+                  <Link href="/folders">
+                    <Button>Go to Folders</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
-        <TabsContent value="folders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Folders</CardTitle>
-              <CardDescription>Organize your content in folders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-8">
-                <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Manage Your Folders</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Create folders to organize your files and content.
-                </p>
-                <Link href="/folders">
-                  <Button>Go to Folders</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="memory">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Memories</CardTitle>
+                <CardDescription>Access and manage your stored memories</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Database className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Browse, search, and manage all your stored memories.
+                  </p>
+                  <Link href="/memories">
+                    <Button>View Memories</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Memory Categories</CardTitle>
+                <CardDescription>Organize memories by category</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Tag className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create and manage categories to organize your memories.
+                  </p>
+                  <Link href="/memory-categories">
+                    <Button>Manage Categories</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Memory Analytics</CardTitle>
+                <CardDescription>Analyze your memory usage and patterns</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <BarChart2 className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    View detailed analytics about your memory usage and patterns.
+                  </p>
+                  <Link href="/memory-analytics">
+                    <Button>View Analytics</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Mem0 Integration</CardTitle>
+                <CardDescription>Configure your Mem0 integration</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Brain className="h-12 w-12 text-blue-500 mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Configure and manage your Mem0 integration settings.
+                  </p>
+                  <Link href="/mem0-integration">
+                    <Button>Configure Mem0</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
-        <TabsContent value="ai-family">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Family</CardTitle>
-              <CardDescription>Manage your AI family members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col items-center justify-center py-8">
-                <Users className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">Manage Your AI Family</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Create and customize AI family members to help with your tasks.
-                </p>
-                <Link href="/ai-family">
-                  <Button>Go to AI Family</Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="ai">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Family</CardTitle>
+                <CardDescription>Manage your AI family members</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Users className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create and customize AI family members to help with your tasks.
+                  </p>
+                  <Link href="/ai-family">
+                    <Button>Manage AI Family</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>CrewAI</CardTitle>
+                <CardDescription>Automate tasks with AI workflows</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Workflow className="h-12 w-12 text-purple-500 mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create and manage AI workflows to automate complex tasks.
+                  </p>
+                  <Link href="/crewai">
+                    <Button>Manage Workflows</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Templates</CardTitle>
+                <CardDescription>Manage email templates for notifications</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center py-4">
+                  <Mail className="h-12 w-12 text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground text-center mb-4">
+                    Create and customize email templates for system notifications.
+                  </p>
+                  <Link href="/email-templates">
+                    <Button>Manage Templates</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Memory Analytics</CardTitle>
-            <CardDescription>Analyze your memory usage and patterns</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-4">
-              <Database className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground text-center mb-4">
-                View detailed analytics about your memory usage and patterns.
-              </p>
-              <Link href="/memory-analytics">
-                <Button variant="outline">View Analytics</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Mem0 Integration</CardTitle>
-            <CardDescription>Configure your Mem0 integration</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-4">
-              <Brain className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground text-center mb-4">
-                Configure and manage your Mem0 integration settings.
-              </p>
-              <Link href="/mem0-integration">
-                <Button variant="outline">Configure Mem0</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle>API Hub</CardTitle>
-            <CardDescription>Manage API keys and integrations</CardDescription>
+            <CardDescription>Manage API integrations</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-4">
-              <Key className="h-12 w-12 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground text-center mb-4">
-                Manage your API keys and external service integrations.
-              </p>
+              <Globe className="h-12 w-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-center mb-4">Configure and manage external API integrations.</p>
               <Link href="/api-hub">
                 <Button variant="outline">Open API Hub</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>API Keys</CardTitle>
+            <CardDescription>Manage your API keys</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-4">
+              <Key className="h-12 w-12 text-yellow-500 mb-3" />
+              <p className="text-muted-foreground text-center mb-4">
+                Create and manage API keys for accessing your data.
+              </p>
+              <Link href="/api-keys">
+                <Button variant="outline">Manage API Keys</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Webhooks</CardTitle>
+            <CardDescription>Configure webhook integrations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-4">
+              <Bell className="h-12 w-12 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-center mb-4">
+                Set up webhooks to integrate with external services.
+              </p>
+              <Link href="/webhooks">
+                <Button variant="outline">Manage Webhooks</Button>
               </Link>
             </div>
           </CardContent>
@@ -199,28 +317,7 @@ export default function Home() {
   )
 }
 
-// Import the Brain and Key icons
-function Brain(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 4.24 3 3 0 0 0 .34 5.58 2.5 2.5 0 0 0 2.96 3.08A2.5 2.5 0 0 0 12 19.5a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 12 4.5" />
-      <path d="M12 15v-2" />
-      <path d="M12 9v0" />
-    </svg>
-  )
-}
-
+// Import the Key icon
 function Key(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg

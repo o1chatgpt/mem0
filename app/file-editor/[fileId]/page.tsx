@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
 import { FileViewer } from "@/components/file-viewer"
 import { FileMemories } from "@/components/file-memories"
+import { useBreadcrumb } from "@/components/breadcrumb-provider"
 
 export default function FileEditorPage({ params }: { params: { fileId: string } }) {
   const router = useRouter()
@@ -25,6 +28,7 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit")
   const [error, setError] = useState<string | null>(null)
   const userId = "test_user" // TODO: Replace with actual user ID
+  const { setBreadcrumbs } = useBreadcrumb()
 
   useEffect(() => {
     const fetchFile = async () => {
@@ -39,6 +43,13 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
         const fileLanguage = await getFileLanguage(fileData.mime_type, fileData.name)
         setLanguage(fileLanguage as any)
 
+        // Update breadcrumbs with file name
+        setBreadcrumbs([
+          { label: "Files", href: "/files", icon: <FileText className="h-4 w-4" /> },
+          { label: "File Editor", href: `/file-editor/${params.fileId}`, icon: <FileText className="h-4 w-4" /> },
+          { label: fileData.name, href: `/file-editor/${params.fileId}` },
+        ])
+
         setLoading(false)
       } catch (error) {
         console.error("Error fetching file:", error)
@@ -48,7 +59,7 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
     }
 
     fetchFile()
-  }, [params.fileId])
+  }, [params.fileId, setBreadcrumbs])
 
   const handleSave = async () => {
     if (content === originalContent) {
@@ -83,7 +94,7 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
 
   if (loading) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto py-6 px-4 md:px-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="h-[600px] bg-muted rounded"></div>
@@ -94,15 +105,15 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
 
   if (error) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto py-6 px-4 md:px-6">
         <Card>
           <CardContent className="p-6">
             <h2 className="text-xl font-bold mb-2">Error</h2>
             <p>{error}</p>
-            <Link href="/">
+            <Link href="/files">
               <Button className="mt-4">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                Back to Files
               </Button>
             </Link>
           </CardContent>
@@ -113,15 +124,15 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
 
   if (!file) {
     return (
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto py-6 px-4 md:px-6">
         <Card>
           <CardContent className="p-6">
             <h2 className="text-xl font-bold mb-2">File Not Found</h2>
             <p>The requested file could not be found.</p>
-            <Link href="/">
+            <Link href="/files">
               <Button className="mt-4">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Dashboard
+                Back to Files
               </Button>
             </Link>
           </CardContent>
@@ -134,15 +145,9 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
   const isImageFile = file.mime_type && file.mime_type.startsWith("image/")
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="container mx-auto py-6 px-4 md:px-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Link href="/">
-            <Button variant="outline" size="sm" className="mr-4">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Button>
-          </Link>
           <h1 className="text-3xl font-bold">{file.name}</h1>
         </div>
         <div className="flex space-x-2">
@@ -218,5 +223,28 @@ export default function FileEditorPage({ params }: { params: { fileId: string } 
         </div>
       )}
     </div>
+  )
+}
+
+function FileText(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" x2="8" y1="13" y2="13" />
+      <line x1="16" x2="8" y1="17" y2="17" />
+      <line x1="10" x2="8" y1="9" y2="9" />
+    </svg>
   )
 }

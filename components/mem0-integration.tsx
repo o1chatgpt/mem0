@@ -58,10 +58,23 @@ export default function Mem0Integration({ userId = 1 }: { userId?: number }) {
         })
 
         if (!response.ok) {
-          throw new Error("Failed to initialize Mem0")
+          throw new Error(`Failed to initialize Mem0: ${response.status} ${response.statusText}`)
         }
 
-        const data = await response.json()
+        let data
+        try {
+          data = await response.json()
+        } catch (jsonError) {
+          console.error("Error parsing JSON response:", jsonError)
+          toast({
+            title: "Initialization Error",
+            description: "Failed to parse server response. Please try again later.",
+            variant: "destructive",
+          })
+          setIsInitializing(false)
+          return
+        }
+
         setCategories(data.categories || [])
 
         // Fetch initial memories

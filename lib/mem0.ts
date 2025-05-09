@@ -84,6 +84,58 @@ export type MemoryCategory = {
   created_at: string
 }
 
+// Default categories to use if none exist
+export const DEFAULT_MEMORY_CATEGORIES = [
+  {
+    name: "File Operations",
+    description: "Memories related to file uploads, downloads, and management",
+    color: "#4CAF50",
+    icon: "file",
+  },
+  {
+    name: "Preferences",
+    description: "User preferences and settings",
+    color: "#2196F3",
+    icon: "settings",
+  },
+  {
+    name: "Important",
+    description: "Critical information that needs to be remembered",
+    color: "#F44336",
+    icon: "alert-circle",
+  },
+  {
+    name: "Conversations",
+    description: "Records of important conversations",
+    color: "#9C27B0",
+    icon: "message-circle",
+  },
+  {
+    name: "Technical",
+    description: "Technical details and specifications",
+    color: "#FF9800",
+    icon: "code",
+  },
+  {
+    name: "Personal",
+    description: "Personal preferences and information",
+    color: "#795548",
+    icon: "user",
+  },
+  {
+    name: "Work",
+    description: "Work-related information and tasks",
+    color: "#607D8B",
+    icon: "briefcase",
+  },
+  {
+    name: "Reference",
+    description: "Reference materials and documentation",
+    color: "#009688",
+    icon: "book",
+  },
+]
+
 // Initialize database tables
 export async function initializeMemoryTables() {
   const supabase = createServerClient()
@@ -131,60 +183,63 @@ export async function initializeMemoryTables() {
           UNIQUE(name, user_id)
         `,
       })
-
-      // Insert default categories
-      const defaultCategories = [
-        {
-          name: "File Operations",
-          description: "Memories related to file uploads, downloads, and management",
-          color: "#4CAF50",
-          icon: "file",
-          user_id: 1,
-        },
-        {
-          name: "Preferences",
-          description: "User preferences and settings",
-          color: "#2196F3",
-          icon: "settings",
-          user_id: 1,
-        },
-        {
-          name: "Important",
-          description: "Critical information that needs to be remembered",
-          color: "#F44336",
-          icon: "alert-circle",
-          user_id: 1,
-        },
-        {
-          name: "Conversations",
-          description: "Records of important conversations",
-          color: "#9C27B0",
-          icon: "message-circle",
-          user_id: 1,
-        },
-        {
-          name: "Technical",
-          description: "Technical details and specifications",
-          color: "#FF9800",
-          icon: "code",
-          user_id: 1,
-        },
-      ]
-
-      // Insert categories one by one to handle potential errors
-      for (const category of defaultCategories) {
-        try {
-          await supabase.from("fm_memory_categories").insert(category)
-        } catch (error) {
-          console.error(`Error inserting category ${category.name}:`, error)
-        }
-      }
     }
 
     return { success: true }
   } catch (error) {
     console.error("Error initializing memory tables:", error)
     return { success: false, error }
+  }
+}
+
+// New function to ensure default categories exist
+export async function ensureDefaultCategories(userId: number): Promise<boolean> {
+  const supabase = createServerClient()
+
+  try {
+    // First check if any categories exist for this user
+    const { data: existingCategories, error: checkError } = await supabase
+      .from("fm_memory_categories")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1)
+
+    if (checkError) {
+      console.error("Error checking for existing categories:", checkError)
+      return false
+    }
+
+    // If categories already exist, no need to create defaults
+    if (existingCategories && existingCategories.length > 0) {
+      console.log(`User ${userId} already has memory categories. Skipping default creation.`)
+      return true
+    }
+
+    console.log(`No memory categories found for user ${userId}. Creating defaults...`)
+
+    // Create default categories for this user
+    const categoriesToInsert = DEFAULT_MEMORY_CATEGORIES.map((category) => ({
+      ...category,
+      user_id: userId,
+    }))
+
+    // Insert categories in batches to avoid potential issues
+    const BATCH_SIZE = 3
+    for (let i = 0; i < categoriesToInsert.length; i += BATCH_SIZE) {
+      const batch = categoriesToInsert.slice(i, i + BATCH_SIZE)
+      const { error: insertError } = await supabase.from("fm_memory_categories").insert(batch)
+
+      if (insertError) {
+        console.error(`Error inserting batch of default categories:`, insertError)
+        // Continue with next batch even if this one failed
+      }
+    }
+
+    console.log(`Default categories created for user ${userId}`)
+    return true
+  } catch (error) {
+    console.error("Error ensuring default categories:", error)
+    return false
   }
 }
 
@@ -656,7 +711,7 @@ export async function getMemoryCategories(userId: number) {
       }
     } catch (error) {
       console.error("Error checking memory_categories table:", error)
-      return []
+      return [] // Return empty array instead of throwing error
     }
 
     // Now fetch the actual data
@@ -669,6 +724,26 @@ export async function getMemoryCategories(userId: number) {
     if (error) {
       console.error("Error fetching memory categories:", error)
       return [] // Return empty array instead of throwing error
+    }
+
+    // If no categories were found, create default ones and fetch again
+    if (!data || data.length === 0) {
+      console.log(`No categories found for user ${userId}. Creating defaults...`)
+      await ensureDefaultCategories(userId)
+
+      // Try fetching again after creating defaults
+      const { data: newData, error: newError } = await supabase
+        .from("fm_memory_categories")
+        .select("*")
+        .eq("user_id", userId)
+        .order("name", { ascending: true })
+
+      if (newError) {
+        console.error("Error fetching memory categories after creating defaults:", newError)
+        return [] // Return empty array instead of throwing error
+      }
+
+      return newData as MemoryCategory[]
     }
 
     return data as MemoryCategory[]
@@ -744,6 +819,9 @@ export async function suggestMemoryCategory(prompt: string, response: string): P
       Conversations: ["chat", "talk", "discuss", "conversation", "message", "communicate"],
       Important: ["important", "critical", "urgent", "remember", "don't forget", "key", "essential"],
       Technical: ["code", "program", "technical", "error", "bug", "feature", "function", "api"],
+      Personal: ["personal", "private", "individual", "own", "self", "me", "my"],
+      Work: ["work", "job", "project", "task", "deadline", "meeting", "colleague"],
+      Reference: ["reference", "documentation", "manual", "guide", "instruction", "how-to"],
     }
 
     // Check each category for keyword matches
